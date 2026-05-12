@@ -85,6 +85,17 @@ export interface ImageBrief {
   variantCount: 1 | 4;
 }
 
+export interface BriefBuilderRequest {
+  input: AuroraImagePipelineInput;
+  variantIndex: number;
+  variantCount: 1 | 4;
+  briefId: string;
+}
+
+export interface BriefBuilder {
+  build(request: BriefBuilderRequest): ImageBrief;
+}
+
 export type OverlayPosition =
   | "top_left"
   | "top_right"
@@ -124,19 +135,35 @@ export interface OverlayMetadata {
   };
 }
 
+export type QAIssueCode =
+  | "HAS_IMAGE_OUTPUT"
+  | "HAS_REQUIRED_BRAND_NAME"
+  | "HAS_LOGO_IF_REQUIRED"
+  | "LOGO_SAFE_MARGIN"
+  | "PRODUCT_VISIBLE_IF_REQUIRED"
+  | "SIZE_MISMATCH"
+  | "FORBIDDEN_WORD_DETECTED"
+  | "BRAND_TONE_MISMATCH"
+  | "STYLE_MISMATCH"
+  | "PREFERENCE_CONFLICT"
+  | "NO_UNKNOWN_ERROR";
+
+export const QA_ISSUE_CODE = {
+  HAS_IMAGE_OUTPUT: "HAS_IMAGE_OUTPUT",
+  HAS_REQUIRED_BRAND_NAME: "HAS_REQUIRED_BRAND_NAME",
+  HAS_LOGO_IF_REQUIRED: "HAS_LOGO_IF_REQUIRED",
+  LOGO_SAFE_MARGIN: "LOGO_SAFE_MARGIN",
+  PRODUCT_VISIBLE_IF_REQUIRED: "PRODUCT_VISIBLE_IF_REQUIRED",
+  SIZE_MISMATCH: "SIZE_MISMATCH",
+  FORBIDDEN_WORD_DETECTED: "FORBIDDEN_WORD_DETECTED",
+  BRAND_TONE_MISMATCH: "BRAND_TONE_MISMATCH",
+  STYLE_MISMATCH: "STYLE_MISMATCH",
+  PREFERENCE_CONFLICT: "PREFERENCE_CONFLICT",
+  NO_UNKNOWN_ERROR: "NO_UNKNOWN_ERROR",
+} as const satisfies Record<string, QAIssueCode>;
+
 export interface QAIssue {
-  code:
-    | "HAS_IMAGE_OUTPUT"
-    | "HAS_REQUIRED_BRAND_NAME"
-    | "HAS_LOGO_IF_REQUIRED"
-    | "LOGO_SAFE_MARGIN"
-    | "PRODUCT_VISIBLE_IF_REQUIRED"
-    | "SIZE_MISMATCH"
-    | "FORBIDDEN_WORD_DETECTED"
-    | "BRAND_TONE_MISMATCH"
-    | "STYLE_MISMATCH"
-    | "PREFERENCE_CONFLICT"
-    | "NO_UNKNOWN_ERROR";
+  code: QAIssueCode;
   severity: QAIssueSeverity;
   message: string;
   regenerationHint?: string;
@@ -154,6 +181,72 @@ export interface GeneratedImage {
   width: number;
   height: number;
   format: AssetFormat;
+}
+
+export interface Image2GenerationRequest {
+  brandContext: BrandContext;
+  brief: ImageBrief;
+  logoAsset: AssetRef;
+  productAsset: AssetRef;
+  attempt: number;
+}
+
+export interface Image2Adapter {
+  generate(request: Image2GenerationRequest): Promise<GeneratedImage>;
+}
+
+export interface MockImage2AdapterOptions {
+  images?: GeneratedImage[];
+  rejectAttempts?: number[];
+  timeoutAttempts?: number[];
+  uriPrefix?: string;
+  format?: AssetFormat;
+}
+
+export interface OverlayEngineRequest {
+  baseImage: GeneratedImage;
+  spec: OverlaySpec;
+  attempt: number;
+  finalImageId: string;
+}
+
+export interface OverlayEngineResult {
+  finalImage: GeneratedImage;
+  metadata: OverlayMetadata;
+}
+
+export interface OverlayEngine {
+  apply(request: OverlayEngineRequest): OverlayEngineResult | Promise<OverlayEngineResult>;
+}
+
+export interface QACheckerRequest {
+  brandContext: BrandContext;
+  brief: ImageBrief;
+  baseImage: GeneratedImage;
+  finalImage: GeneratedImage;
+  overlayMetadata: OverlayMetadata;
+}
+
+export interface QAChecker {
+  check(request: QACheckerRequest): QAResult;
+}
+
+export interface PipelineIdFactory {
+  jobId(input: AuroraImagePipelineInput): string;
+  runId(input: AuroraImagePipelineInput): string;
+  itemId(input: AuroraImagePipelineInput, index: number): string;
+  briefId(input: AuroraImagePipelineInput, index: number): string;
+  finalImageId(baseImage: GeneratedImage): string;
+}
+
+export interface SingleImagePipelineDependencies {
+  imageAdapter: Image2Adapter;
+  briefBuilder?: BriefBuilder;
+  overlayEngine?: OverlayEngine;
+  qaChecker?: QAChecker;
+  now?: () => string;
+  idFactory?: PipelineIdFactory;
+  maxRetries?: number;
 }
 
 export interface GenerationItem {
@@ -222,4 +315,3 @@ export interface ExportManifest {
   runId: string;
   files: string[];
 }
-
