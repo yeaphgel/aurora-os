@@ -41,7 +41,7 @@ describe("M2 single-image pipeline", () => {
     const item = result.run.items[0];
     expect(item?.status).toBe("passed");
     expect(item?.retryCount).toBe(0);
-    expect(item?.maxRetries).toBe(2);
+    expect(item?.maxRetries).toBe(3);
     expect(item?.brief.variantCount).toBe(1);
     expect(item?.image?.uri).toContain("asset://mock-image");
     expect(item?.finalImage?.uri).toContain("overlay://final");

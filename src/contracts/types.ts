@@ -231,6 +231,18 @@ export interface QAChecker {
   check(request: QACheckerRequest): QAResult;
 }
 
+export interface BriefRegenerationAdjustmentRequest {
+  input: AuroraImagePipelineInput;
+  failedBrief: ImageBrief;
+  qa: QAResult;
+  retryCount: number;
+  nextAttempt: number;
+}
+
+export interface BriefRegenerationAdjuster {
+  adjust(request: BriefRegenerationAdjustmentRequest): ImageBrief;
+}
+
 export interface PipelineIdFactory {
   jobId(input: AuroraImagePipelineInput): string;
   runId(input: AuroraImagePipelineInput): string;
@@ -242,6 +254,7 @@ export interface PipelineIdFactory {
 export interface SingleImagePipelineDependencies {
   imageAdapter: Image2Adapter;
   briefBuilder?: BriefBuilder;
+  regenerationAdjuster?: BriefRegenerationAdjuster;
   overlayEngine?: OverlayEngine;
   qaChecker?: QAChecker;
   now?: () => string;
@@ -288,6 +301,32 @@ export interface PipelineResult {
   run: GenerationRun;
 }
 
+export interface GalleryPreviewItem {
+  itemId: string;
+  index: number;
+  status: GenerationItemStatus;
+  thumbnailUri?: string;
+  finalImageUri?: string;
+  qaStatus?: QAStatus;
+  issues: QAIssue[];
+  retryCount: number;
+  maxRetries: number;
+  autoRegenerated: boolean;
+  generatedAt: string;
+  canExport: boolean;
+}
+
+export interface GalleryPreview {
+  runId: string;
+  status: RunStatus;
+  summary: GenerationRunSummary;
+  items: GalleryPreviewItem[];
+  createdAt: string;
+  updatedAt: string;
+}
+
+export type ExportImageFormat = Extract<AssetFormat, "png" | "jpg">;
+
 export interface ExportMetadataItem {
   itemId: string;
   status: GenerationItemStatus;
@@ -313,5 +352,29 @@ export interface ExportMetadata {
 export interface ExportManifest {
   version: "1.0.0";
   runId: string;
+  files: string[];
+}
+
+export interface ExportImageWriteRequest {
+  item: GenerationItem;
+  format: ExportImageFormat;
+  targetPath: string;
+}
+
+export interface ExportAssetWriter {
+  writeImage(request: ExportImageWriteRequest): Promise<string>;
+}
+
+export interface ExportPackageRequest {
+  result: PipelineResult;
+  outputDir: string;
+  formats?: ExportImageFormat[];
+  mode?: ExportMetadata["mode"];
+  assetWriter?: ExportAssetWriter;
+}
+
+export interface ExportPackageResult {
+  metadata: ExportMetadata;
+  manifest: ExportManifest;
   files: string[];
 }

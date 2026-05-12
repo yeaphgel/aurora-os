@@ -21,35 +21,36 @@ import {
 } from "../contracts/index.js";
 import { defaultBriefBuilder } from "./brief-builder.js";
 import { createPipelineError, normalizePipelineError } from "./errors.js";
-import { createDeterministicQAChecker } from "./qa-checker.js";
 import { deterministicOverlayEngine, makeOverlaySpec } from "./overlay-engine.js";
+import { createDeterministicQAChecker } from "./qa-checker.js";
+import { defaultRegenerationAdjuster } from "./regeneration-adjuster.js";
 
-const DEFAULT_MAX_RETRIES = 2;
+export const DEFAULT_SINGLE_IMAGE_MAX_RETRIES = 3;
+export const DEFAULT_MULTI_IMAGE_MAX_RETRIES = 2;
 
 export async function runSingleImagePipeline(
   input: AuroraImagePipelineInput,
   dependencies: SingleImagePipelineDependencies,
 ): Promise<PipelineResult> {
   const now = dependencies.now ?? (() => new Date().toISOString());
-  const idFactory = dependencies.idFactory ?? defaultIdFactory;
-  const briefBuilder = dependencies.briefBuilder ?? defaultBriefBuilder;
-  const overlayEngine = dependencies.overlayEngine ?? deterministicOverlayEngine;
-  const qaChecker = dependencies.qaChecker ?? createDeterministicQAChecker(now);
-  const maxRetries = dependencies.maxRetries ?? DEFAULT_MAX_RETRIES;
+  const idFactory = dependencies.idFactory ?? defaultPipelineIdFactory;
+  const maxRetries = dependencies.maxRetries ?? DEFAULT_SINGLE_IMAGE_MAX_RETRIES;
   const createdAt = now();
-  const brief = briefBuilder.build({
-    input,
-    variantIndex: 0,
-    variantCount: 1,
-    briefId: idFactory.briefId(input, 0),
-  });
 
   const inputError = validateSingleImageInput(input);
   if (inputError) {
-    return makePipelineResult(input, idFactory, createdAt, now(), [
+    const brief = (dependencies.briefBuilder ?? defaultBriefBuilder).build({
+      input,
+      variantIndex: 0,
+      variantCount: 1,
+      briefId: idFactory.briefId(input, 0),
+    });
+
+    return makePipelineResult(input, idFactory, 1, createdAt, now(), [
       makeItem({
         input,
         idFactory,
+        index: 0,
         brief,
         status: GENERATION_ITEM_STATUS.FAILED,
         retryCount: 0,
@@ -59,12 +60,57 @@ export async function runSingleImagePipeline(
     ]);
   }
 
+  const item = await runGenerationItem(input, dependencies, {
+    variantIndex: 0,
+    variantCount: 1,
+    maxRetries,
+  });
+
+  return makePipelineResult(input, idFactory, 1, createdAt, now(), [item]);
+}
+
+export async function runGenerationItem(
+  input: AuroraImagePipelineInput,
+  dependencies: SingleImagePipelineDependencies,
+  options: {
+    variantIndex: number;
+    variantCount: 1 | 4;
+    maxRetries: number;
+  },
+): Promise<GenerationItem> {
+  const now = dependencies.now ?? (() => new Date().toISOString());
+  const idFactory = dependencies.idFactory ?? defaultPipelineIdFactory;
+  const briefBuilder = dependencies.briefBuilder ?? defaultBriefBuilder;
+  const regenerationAdjuster = dependencies.regenerationAdjuster ?? defaultRegenerationAdjuster;
+  const overlayEngine = dependencies.overlayEngine ?? deterministicOverlayEngine;
+  const qaChecker = dependencies.qaChecker ?? createDeterministicQAChecker(now);
+  let currentBrief = briefBuilder.build({
+    input,
+    variantIndex: options.variantIndex,
+    variantCount: options.variantCount,
+    briefId: idFactory.briefId(input, options.variantIndex),
+  });
+
+  const inputError = validateGenerationItemInput(input);
+  if (inputError) {
+    return makeItem({
+      input,
+      idFactory,
+      index: options.variantIndex,
+      brief: currentBrief,
+      status: GENERATION_ITEM_STATUS.FAILED,
+      retryCount: 0,
+      maxRetries: options.maxRetries,
+      error: inputError,
+    });
+  }
+
   const productAsset = input.productAssets[0];
   if (!productAsset) {
     throw createPipelineError(
       PIPELINE_ERROR_CODE.MISSING_ASSET,
       PIPELINE_STAGE.INPUT_VALIDATION,
-      "Product asset is required for single-image generation.",
+      "Product asset is required for image generation.",
       false,
     );
   }
@@ -81,7 +127,7 @@ export async function runSingleImagePipeline(
     try {
       const image = await dependencies.imageAdapter.generate({
         brandContext: input.brandContext,
-        brief,
+        brief: currentBrief,
         logoAsset: input.logoAsset,
         productAsset,
         attempt,
@@ -91,7 +137,7 @@ export async function runSingleImagePipeline(
       const overlayResult = await overlayEngine.apply({
         baseImage: image,
         spec: makeOverlaySpec({
-          outputSize: brief.size,
+          outputSize: currentBrief.size,
           logoAsset: input.logoAsset,
           productAsset,
           brandContext: input.brandContext,
@@ -104,7 +150,7 @@ export async function runSingleImagePipeline(
 
       const qa = qaChecker.check({
         brandContext: input.brandContext,
-        brief,
+        brief: currentBrief,
         baseImage: image,
         finalImage: overlayResult.finalImage,
         overlayMetadata: overlayResult.metadata,
@@ -112,71 +158,79 @@ export async function runSingleImagePipeline(
       lastQA = qa;
 
       if (qa.status !== QA_STATUS.FAIL) {
-        return makePipelineResult(input, idFactory, createdAt, now(), [
-          makeItem({
-            input,
-            idFactory,
-            brief,
-            status: GENERATION_ITEM_STATUS.PASSED,
-            retryCount,
-            maxRetries,
-            image,
-            finalImage: overlayResult.finalImage,
-            overlayMetadata: overlayResult.metadata,
-            qa,
-          }),
-        ]);
-      }
-
-      if (retryCount < maxRetries && qa.issues.some((issue) => issue.severity === QA_ISSUE_SEVERITY.HARD_FAIL)) {
-        retryCount += 1;
-        continue;
-      }
-
-      return makePipelineResult(input, idFactory, createdAt, now(), [
-        makeItem({
+        return makeItem({
           input,
           idFactory,
-          brief,
-          status: GENERATION_ITEM_STATUS.NEEDS_HUMAN,
+          index: options.variantIndex,
+          brief: currentBrief,
+          status: GENERATION_ITEM_STATUS.PASSED,
           retryCount,
-          maxRetries,
+          maxRetries: options.maxRetries,
           image,
           finalImage: overlayResult.finalImage,
           overlayMetadata: overlayResult.metadata,
           qa,
-          error: createPipelineError(
-            PIPELINE_ERROR_CODE.RETRY_LIMIT_REACHED,
-            PIPELINE_STAGE.REGENERATION,
-            "Automatic regeneration limit reached.",
-            false,
-          ),
-        }),
-      ]);
-    } catch (error) {
-      const pipelineError = normalizePipelineError(error, PIPELINE_STAGE.UNKNOWN);
-      if (pipelineError.retryable && retryCount < maxRetries) {
+        });
+      }
+
+      if (
+        retryCount < options.maxRetries &&
+        qa.issues.some((issue) => issue.severity === QA_ISSUE_SEVERITY.HARD_FAIL)
+      ) {
+        currentBrief = regenerationAdjuster.adjust({
+          input,
+          failedBrief: currentBrief,
+          qa,
+          retryCount,
+          nextAttempt: retryCount + 1,
+        });
         retryCount += 1;
         continue;
       }
 
-      return makePipelineResult(input, idFactory, createdAt, now(), [
-        makeItem({
-          input,
-          idFactory,
-          brief,
-          status: pipelineError.code === PIPELINE_ERROR_CODE.RETRY_LIMIT_REACHED
+      return makeItem({
+        input,
+        idFactory,
+        index: options.variantIndex,
+        brief: currentBrief,
+        status: GENERATION_ITEM_STATUS.NEEDS_HUMAN,
+        retryCount,
+        maxRetries: options.maxRetries,
+        image,
+        finalImage: overlayResult.finalImage,
+        overlayMetadata: overlayResult.metadata,
+        qa,
+        error: createPipelineError(
+          PIPELINE_ERROR_CODE.RETRY_LIMIT_REACHED,
+          PIPELINE_STAGE.REGENERATION,
+          "Automatic regeneration limit reached.",
+          false,
+        ),
+      });
+    } catch (error) {
+      const pipelineError = normalizePipelineError(error, PIPELINE_STAGE.UNKNOWN);
+      if (pipelineError.retryable && retryCount < options.maxRetries) {
+        retryCount += 1;
+        continue;
+      }
+
+      return makeItem({
+        input,
+        idFactory,
+        index: options.variantIndex,
+        brief: currentBrief,
+        status:
+          pipelineError.code === PIPELINE_ERROR_CODE.RETRY_LIMIT_REACHED
             ? GENERATION_ITEM_STATUS.NEEDS_HUMAN
             : GENERATION_ITEM_STATUS.FAILED,
-          retryCount,
-          maxRetries,
-          image: lastImage,
-          finalImage: lastFinalImage,
-          overlayMetadata: lastOverlayMetadata,
-          qa: lastQA,
-          error: pipelineError,
-        }),
-      ]);
+        retryCount,
+        maxRetries: options.maxRetries,
+        image: lastImage,
+        finalImage: lastFinalImage,
+        overlayMetadata: lastOverlayMetadata,
+        qa: lastQA,
+        error: pipelineError,
+      });
     }
   }
 }
@@ -186,11 +240,15 @@ function validateSingleImageInput(input: AuroraImagePipelineInput): PipelineErro
     return createPipelineError(
       PIPELINE_ERROR_CODE.INVALID_BRAND_CONTEXT,
       PIPELINE_STAGE.INPUT_VALIDATION,
-      "M2 single-image runner only accepts generationCount: 1.",
+      "Single-image runner only accepts generationCount: 1.",
       false,
     );
   }
 
+  return validateGenerationItemInput(input);
+}
+
+function validateGenerationItemInput(input: AuroraImagePipelineInput): PipelineError | undefined {
   if (!input.brandContext.brandId || !input.brandContext.brandName || input.brandContext.brandId !== input.brandId) {
     return createPipelineError(
       PIPELINE_ERROR_CODE.INVALID_BRAND_CONTEXT,
@@ -204,7 +262,7 @@ function validateSingleImageInput(input: AuroraImagePipelineInput): PipelineErro
     return createPipelineError(
       PIPELINE_ERROR_CODE.MISSING_ASSET,
       PIPELINE_STAGE.INPUT_VALIDATION,
-      "Logo asset is required for single-image generation.",
+      "Logo asset is required for image generation.",
       false,
     );
   }
@@ -214,7 +272,7 @@ function validateSingleImageInput(input: AuroraImagePipelineInput): PipelineErro
     return createPipelineError(
       PIPELINE_ERROR_CODE.MISSING_ASSET,
       PIPELINE_STAGE.INPUT_VALIDATION,
-      "Product asset is required for single-image generation.",
+      "Product asset is required for image generation.",
       false,
     );
   }
@@ -225,6 +283,7 @@ function validateSingleImageInput(input: AuroraImagePipelineInput): PipelineErro
 function makeItem(request: {
   input: AuroraImagePipelineInput;
   idFactory: PipelineIdFactory;
+  index: number;
   brief: ImageBrief;
   status: GenerationItem["status"];
   retryCount: number;
@@ -236,8 +295,8 @@ function makeItem(request: {
   error?: PipelineError | undefined;
 }): GenerationItem {
   return {
-    itemId: request.idFactory.itemId(request.input, 0),
-    index: 0,
+    itemId: request.idFactory.itemId(request.input, request.index),
+    index: request.index,
     status: request.status,
     briefId: request.brief.briefId,
     brief: request.brief,
@@ -252,16 +311,17 @@ function makeItem(request: {
   };
 }
 
-function makePipelineResult(
+export function makePipelineResult(
   input: AuroraImagePipelineInput,
   idFactory: PipelineIdFactory,
+  count: 1 | 4,
   createdAt: string,
   updatedAt: string,
   items: GenerationItem[],
 ): PipelineResult {
   const runSeed = {
     runId: idFactory.runId(input),
-    count: 1,
+    count,
     status: RUN_STATUS.QUEUED,
     items,
     summary: {
@@ -285,9 +345,9 @@ function makePipelineResult(
   };
 }
 
-const defaultIdFactory: PipelineIdFactory = {
+export const defaultPipelineIdFactory: PipelineIdFactory = {
   jobId: (input) => `job_${safeId(input.brandId)}`,
-  runId: (input) => `run_${safeId(input.brandId)}_single`,
+  runId: (input) => `run_${safeId(input.brandId)}_${input.generationCount === 4 ? "multi" : "single"}`,
   itemId: (input, index) => `item_${safeId(input.brandId)}_${String(index + 1).padStart(3, "0")}`,
   briefId: (input, index) => `brief_${safeId(input.brandId)}_${String(index + 1).padStart(3, "0")}`,
   finalImageId: (baseImage) => `final_${baseImage.imageId}`,
