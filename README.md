@@ -52,6 +52,71 @@ npm run validate
 
 当前测试覆盖 contracts、M2、M3、M4、M5。通过标准是所有 TypeScript 类型检查和 Vitest 测试都通过。
 
+### Hermes 一键安装
+
+默认安装方式是从 GitHub 克隆本仓库，然后安装依赖并运行验证。把下面脚本里的 `YOUR_GITHUB_NAME_OR_ORG` 替换成你的 GitHub 用户名或组织名。
+
+Windows PowerShell:
+
+```powershell
+$Repo = "https://github.com/YOUR_GITHUB_NAME_OR_ORG/aurora-os.git"
+$Target = "$HOME\Aurora OS"
+git clone $Repo $Target
+Set-Location $Target
+npm install
+npm run validate
+Write-Host "Aurora OS Hermes plugin base is installed and validated."
+```
+
+macOS / Linux:
+
+```bash
+REPO="https://github.com/YOUR_GITHUB_NAME_OR_ORG/aurora-os.git"
+TARGET="$HOME/Aurora OS"
+git clone "$REPO" "$TARGET"
+cd "$TARGET"
+npm install
+npm run validate
+echo "Aurora OS Hermes plugin base is installed and validated."
+```
+
+Hermes 集成时，推荐把 Aurora OS 作为 Hermes plugin base 接入，并让 Hermes 调用 pipeline entry。当前仓库只提供可测试的插件底座和 mockable adapter boundary，不包含真实发布集成。
+
+### 生图能力策略
+
+默认生图路径应使用 Hermes 原生的 GPT-Image-2 能力。Aurora OS 里的 Image-2 adapter 是边界层：测试和本地开发默认使用 mock adapter，生产接入时优先由 Hermes 注入原生 GPT-Image-2 adapter。
+
+也可以接入其他生图方式，例如自定义 adapter 或第三方图像模型，但它们只能作为显式配置的替代方案，不能成为默认路径。这样可以保证 Hermes-first 的产品定位不被绕开，同时保留测试、迁移和供应商切换空间。
+
+### 推送到 GitHub
+
+第一次推送：
+
+```bash
+git status
+git add .
+git commit -m "feat: complete aurora os m5 plugin base"
+git branch -M main
+git remote add origin https://github.com/YOUR_GITHUB_NAME_OR_ORG/aurora-os.git
+git push -u origin main
+```
+
+如果已经添加过 `origin`：
+
+```bash
+git remote -v
+git add .
+git commit -m "docs: add hermes install and image generation strategy"
+git push
+```
+
+如果 `git remote add origin ...` 提示 remote 已存在，用下面命令更新地址：
+
+```bash
+git remote set-url origin https://github.com/YOUR_GITHUB_NAME_OR_ORG/aurora-os.git
+git push -u origin main
+```
+
 ### 主要目录
 
 ```text
@@ -151,6 +216,71 @@ npm run validate
 - `npm test`
 
 The test suite covers contracts, M2, M3, M4, and M5. The project passes when TypeScript type checking and all Vitest tests pass.
+
+### One-Command Hermes Install
+
+The default install path is to clone this GitHub repository, install dependencies, and run validation. Replace `YOUR_GITHUB_NAME_OR_ORG` with your GitHub user or organization name.
+
+Windows PowerShell:
+
+```powershell
+$Repo = "https://github.com/YOUR_GITHUB_NAME_OR_ORG/aurora-os.git"
+$Target = "$HOME\Aurora OS"
+git clone $Repo $Target
+Set-Location $Target
+npm install
+npm run validate
+Write-Host "Aurora OS Hermes plugin base is installed and validated."
+```
+
+macOS / Linux:
+
+```bash
+REPO="https://github.com/YOUR_GITHUB_NAME_OR_ORG/aurora-os.git"
+TARGET="$HOME/Aurora OS"
+git clone "$REPO" "$TARGET"
+cd "$TARGET"
+npm install
+npm run validate
+echo "Aurora OS Hermes plugin base is installed and validated."
+```
+
+In a Hermes integration, Aurora OS should be used as a Hermes plugin base, with Hermes calling the pipeline entry. This repository provides the testable plugin foundation and mockable adapter boundary. It does not include real publishing integration.
+
+### Image Generation Strategy
+
+The default image generation path should use Hermes-native GPT-Image-2 capability. The Image-2 adapter in Aurora OS is a boundary layer: tests and local development use the mock adapter by default, while production should prefer a Hermes-injected native GPT-Image-2 adapter.
+
+Other image generation providers can be integrated through custom adapters, but they must be explicitly configured alternatives, not the default path. This keeps the product Hermes-first while preserving room for testing, migration, and vendor switching.
+
+### Push To GitHub
+
+First push:
+
+```bash
+git status
+git add .
+git commit -m "feat: complete aurora os m5 plugin base"
+git branch -M main
+git remote add origin https://github.com/YOUR_GITHUB_NAME_OR_ORG/aurora-os.git
+git push -u origin main
+```
+
+If `origin` already exists:
+
+```bash
+git remote -v
+git add .
+git commit -m "docs: add hermes install and image generation strategy"
+git push
+```
+
+If `git remote add origin ...` says the remote already exists, update it:
+
+```bash
+git remote set-url origin https://github.com/YOUR_GITHUB_NAME_OR_ORG/aurora-os.git
+git push -u origin main
+```
 
 ### Main Folders
 
