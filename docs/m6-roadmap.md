@@ -1,6 +1,16 @@
 # M6 Native Brand Visuals Roadmap
 
-M6 is the planned Aurora OS upgrade for Hermes-driven brand visual generation. It is public roadmap material only; private brand plans, brand assets, rejected examples, and local QA notes remain under `_private/`, which is ignored by Git.
+M6 is the Aurora OS upgrade path for Hermes-driven brand visual generation. This public roadmap only documents non-private capability boundaries; private brand plans, brand assets, rejected examples, and local QA notes remain under `_private/`, which is ignored by Git.
+
+## Phase 1 Status
+
+Implemented in `0.2.0`:
+
+- `ImageBriefV2` contract for native product reference generation.
+- `Image2AdapterV2` injection boundary for Hermes-owned GPT-Image 2 calls.
+- `runSingleImagePipelineV2(input, { imageAdapterV2 })` single-image runner.
+- Product-reference QA metadata that prevents silent fallback to the old overlay-only path.
+- Regression coverage that confirms the product asset reaches the injected adapter.
 
 ## Goal
 
@@ -70,4 +80,3 @@ M6 will classify story structure separately from visual style:
 6. Repair loop: targeted text/logo/product/layout/color repair.
 7. Hermes tools: stable JSON tool contracts for brand read/update, generate, QA, repair, rank, export, and upgrade.
 8. Upgrade: dry-run and apply flows that preserve existing brands.
-

@@ -85,6 +85,123 @@ export interface ImageBrief {
   variantCount: 1 | 4;
 }
 
+export type M6RenderMode = "native_product_reference" | "native_text_logo" | "overlay_fallback";
+
+export type BrandedProductVisualType =
+  | "hero_packshot"
+  | "cinematic_environment"
+  | "lifestyle_identity"
+  | "creator_workbench"
+  | "technical_precision"
+  | "ecosystem_layout"
+  | "use_case_proof"
+  | "macro_material"
+  | "before_after_compare"
+  | "brand_symbol_world"
+  | "editorial_story_panel"
+  | "retail_conversion_card";
+
+export type BrandStoryMode =
+  | "problem_solution"
+  | "journey_transition"
+  | "workflow_steps"
+  | "hero_mission"
+  | "identity_projection"
+  | "upgrade_announcement"
+  | "proof_by_context"
+  | "ritual_of_use"
+  | "anatomy_explainer"
+  | "ecosystem_story"
+  | "aspirational_world"
+  | "comparison_claim";
+
+export type TextEditPolicy = "exact" | "locked_meaning" | "creative";
+
+export interface TextBlockSpec {
+  role: "brand" | "product_name" | "headline" | "subhead" | "supporting" | "cta";
+  text: string;
+  priority: "required" | "recommended" | "optional";
+  editPolicy: TextEditPolicy;
+}
+
+export interface ProductRenderSpec {
+  asset: AssetRef;
+  referenceMode: "reference_locked";
+  integrationGoal: "scene_integrated";
+  preserveDetails: string[];
+  maxDistortion: "none" | "minor";
+  fallback: "overlay_if_failed" | "fail_if_not_integrated";
+}
+
+export interface LogoRenderSpec {
+  asset: AssetRef;
+  strategy: "native_with_exactness_qa" | "deterministic_required";
+  minWidthPx: number;
+  safeMarginPx: number;
+}
+
+export interface SceneSpec {
+  environment: string;
+  lighting: string;
+  composition: string[];
+  mustAvoid: string[];
+}
+
+export interface VisualQAPolicy {
+  requireProductReferenceAttached: boolean;
+  requireNativeProductReference: boolean;
+  requireProductNotOverlayOnly: boolean;
+  requireHumanIntegrationReview: boolean;
+}
+
+export interface ImageBriefV2 {
+  briefId: string;
+  schemaVersion: "m6.0";
+  channelFormat: ChannelFormat;
+  size: {
+    width: number;
+    height: number;
+  };
+  renderMode: M6RenderMode;
+  creativeIntent: string;
+  visualType: BrandedProductVisualType;
+  storyMode: BrandStoryMode;
+  layoutSpec: {
+    safeMarginPx: number;
+    textPlacement: "minimal_top" | "minimal_bottom" | "integrated";
+    productPlacement: "scene_center" | "scene_foreground" | "environmental";
+  };
+  textBlocks: TextBlockSpec[];
+  logoSpec: LogoRenderSpec;
+  productSpec: ProductRenderSpec;
+  sceneSpec: SceneSpec;
+  referencePolicy: {
+    useBrandApprovedExamples: boolean;
+    avoidBrandRejectedExamples: boolean;
+    useGlobalPremiumReferences: boolean;
+  };
+  qaPolicy: VisualQAPolicy;
+  promptPayload: {
+    systemPrompt: string;
+    userPrompt: string;
+    negativePrompt: string;
+  };
+  negativeConstraints: string[];
+  variantIndex: number;
+  variantCount: 1 | 4;
+}
+
+export interface BriefBuilderV2Request {
+  input: AuroraImagePipelineInput;
+  variantIndex: number;
+  variantCount: 1 | 4;
+  briefId: string;
+}
+
+export interface BriefBuilderV2 {
+  build(request: BriefBuilderV2Request): ImageBriefV2;
+}
+
 export interface BriefBuilderRequest {
   input: AuroraImagePipelineInput;
   variantIndex: number;
@@ -146,6 +263,10 @@ export type QAIssueCode =
   | "BRAND_TONE_MISMATCH"
   | "STYLE_MISMATCH"
   | "PREFERENCE_CONFLICT"
+  | "PRODUCT_REFERENCE_ATTACHED"
+  | "NATIVE_PRODUCT_REFERENCE_USED"
+  | "PRODUCT_NOT_OVERLAY_ONLY"
+  | "PRODUCT_INTEGRATION_REVIEW_REQUIRED"
   | "NO_UNKNOWN_ERROR";
 
 export const QA_ISSUE_CODE = {
@@ -159,6 +280,10 @@ export const QA_ISSUE_CODE = {
   BRAND_TONE_MISMATCH: "BRAND_TONE_MISMATCH",
   STYLE_MISMATCH: "STYLE_MISMATCH",
   PREFERENCE_CONFLICT: "PREFERENCE_CONFLICT",
+  PRODUCT_REFERENCE_ATTACHED: "PRODUCT_REFERENCE_ATTACHED",
+  NATIVE_PRODUCT_REFERENCE_USED: "NATIVE_PRODUCT_REFERENCE_USED",
+  PRODUCT_NOT_OVERLAY_ONLY: "PRODUCT_NOT_OVERLAY_ONLY",
+  PRODUCT_INTEGRATION_REVIEW_REQUIRED: "PRODUCT_INTEGRATION_REVIEW_REQUIRED",
   NO_UNKNOWN_ERROR: "NO_UNKNOWN_ERROR",
 } as const satisfies Record<string, QAIssueCode>;
 
@@ -183,6 +308,16 @@ export interface GeneratedImage {
   format: AssetFormat;
 }
 
+export interface GeneratedImageV2 extends GeneratedImage {
+  adapterMode: "hermes_live" | "mock";
+  modelId?: string;
+  attemptId?: string;
+  usedProductReference: boolean;
+  usedLogoReference: boolean;
+  usedOverlayFallback: boolean;
+  inputAssetIds: string[];
+}
+
 export interface Image2GenerationRequest {
   brandContext: BrandContext;
   brief: ImageBrief;
@@ -193,6 +328,19 @@ export interface Image2GenerationRequest {
 
 export interface Image2Adapter {
   generate(request: Image2GenerationRequest): Promise<GeneratedImage>;
+}
+
+export interface Image2GenerationRequestV2 {
+  brandContext: BrandContext;
+  brief: ImageBriefV2;
+  logoAsset: AssetRef;
+  productAsset: AssetRef;
+  referenceAssets: AssetRef[];
+  attempt: number;
+}
+
+export interface Image2AdapterV2 {
+  generate(request: Image2GenerationRequestV2): Promise<GeneratedImageV2>;
 }
 
 export interface MockImage2AdapterOptions {
@@ -262,6 +410,13 @@ export interface SingleImagePipelineDependencies {
   maxRetries?: number;
 }
 
+export interface SingleImagePipelineV2Dependencies {
+  imageAdapterV2?: Image2AdapterV2;
+  briefBuilderV2?: BriefBuilderV2;
+  now?: () => string;
+  idFactory?: PipelineIdFactory;
+}
+
 export interface GenerationItem {
   itemId: string;
   index: number;
@@ -299,6 +454,49 @@ export interface GenerationRun {
 export interface PipelineResult {
   jobId: string;
   run: GenerationRun;
+}
+
+export interface M6GenerationItem {
+  itemId: string;
+  index: number;
+  status: GenerationItemStatus;
+  briefId: string;
+  brief: ImageBriefV2;
+  image?: GeneratedImageV2;
+  finalImage?: GeneratedImageV2;
+  qa?: QAResult;
+  retryCount: number;
+  maxRetries: number;
+  issues: QAIssue[];
+  error?: PipelineError;
+  m6: {
+    renderMode: M6RenderMode;
+    visualType: BrandedProductVisualType;
+    storyMode: BrandStoryMode;
+    productReferenceAttached: boolean;
+    nativeProductReferenceUsed: boolean;
+    overlayFallbackUsed: boolean;
+  };
+}
+
+export interface M6GenerationRun {
+  runId: string;
+  count: 1;
+  status: RunStatus;
+  items: M6GenerationItem[];
+  summary: GenerationRunSummary;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface M6PipelineResult {
+  jobId: string;
+  run: M6GenerationRun;
+  m6: {
+    schemaVersion: "m6.0";
+    adapterBoundary: "injected";
+    stableApprovalReady: boolean;
+  };
 }
 
 export interface GalleryPreviewItem {

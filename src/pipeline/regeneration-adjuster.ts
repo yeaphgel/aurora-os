@@ -107,6 +107,14 @@ function toRegenerationConstraints(issue: QAIssue): string[] {
       return ["must align with visual style constraints", ...hint];
     case QA_ISSUE_CODE.PREFERENCE_CONFLICT:
       return ["must avoid rejected preference memory patterns", ...hint];
+    case QA_ISSUE_CODE.PRODUCT_REFERENCE_ATTACHED:
+      return ["must attach the product image as a generation reference", ...hint];
+    case QA_ISSUE_CODE.NATIVE_PRODUCT_REFERENCE_USED:
+      return ["must use native product reference generation mode", ...hint];
+    case QA_ISSUE_CODE.PRODUCT_NOT_OVERLAY_ONLY:
+      return ["must avoid overlay-only product placement", ...hint];
+    case QA_ISSUE_CODE.PRODUCT_INTEGRATION_REVIEW_REQUIRED:
+      return ["must pass product integration review before approval", ...hint];
     case QA_ISSUE_CODE.NO_UNKNOWN_ERROR:
       return hint;
   }
