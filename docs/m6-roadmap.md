@@ -1,0 +1,73 @@
+# M6 Native Brand Visuals Roadmap
+
+M6 is the planned Aurora OS upgrade for Hermes-driven brand visual generation. It is public roadmap material only; private brand plans, brand assets, rejected examples, and local QA notes remain under `_private/`, which is ignored by Git.
+
+## Goal
+
+Move Aurora OS from a deterministic brand image pipeline toward a structured native brand visual system:
+
+- BrandVault-backed visual memory.
+- `ImageBriefV2` with layout, text, logo, product, scene, reference, and QA policy fields.
+- Native text/logo/product generation strategy for image models.
+- Deterministic overlay fallback for exact logos and compliance text.
+- Visual QA for OCR text, logo recognition, product integrity, layout safe areas, brand color alignment, and export readiness.
+- Hermes-safe install and update flow that updates code without deleting existing brands.
+
+## Reference Policy
+
+M6 separates reference material into explicit categories:
+
+| Type | Purpose |
+| --- | --- |
+| `brand_approved` | Same-brand examples explicitly approved by the user. |
+| `brand_rejected` | Same-brand examples explicitly rejected by the user. |
+| `global_premium_reference` | Cross-brand high-quality references used only for abstract visual learning. |
+| `global_negative_reference` | Cross-brand negative references used only for avoidance rules. |
+
+Cross-brand examples must not become a brand's approved examples automatically.
+
+## Visual Types
+
+M6 will classify branded product visuals before generation:
+
+- `hero_packshot`
+- `cinematic_environment`
+- `lifestyle_identity`
+- `creator_workbench`
+- `technical_precision`
+- `ecosystem_layout`
+- `use_case_proof`
+- `macro_material`
+- `before_after_compare`
+- `brand_symbol_world`
+- `editorial_story_panel`
+- `retail_conversion_card`
+
+## Story Modes
+
+M6 will classify story structure separately from visual style:
+
+- `problem_solution`
+- `journey_transition`
+- `workflow_steps`
+- `hero_mission`
+- `identity_projection`
+- `upgrade_announcement`
+- `proof_by_context`
+- `ritual_of_use`
+- `anatomy_explainer`
+- `ecosystem_story`
+- `aspirational_world`
+- `comparison_claim`
+
+## Implementation Slices
+
+1. Schema: `VisualMemory`, `ImageBriefV2`, visual type and story mode contracts.
+2. BrandVault: local brand storage, migration, and reference categorization.
+3. Brief Builder V2: structured brief generation from brand context and visual memory.
+4. Image adapter: live adapter boundary with mock-first testability.
+5. Visual QA: OCR, logo, product, layout, color, rejected-reference, and export checks.
+6. Repair loop: targeted text/logo/product/layout/color repair.
+7. Hermes tools: stable JSON tool contracts for brand read/update, generate, QA, repair, rank, export, and upgrade.
+8. Upgrade: dry-run and apply flows that preserve existing brands.
+
