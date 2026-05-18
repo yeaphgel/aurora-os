@@ -12,6 +12,13 @@ Implemented in `0.2.0`:
 - Product-reference QA metadata that prevents silent fallback to the old overlay-only path.
 - Regression coverage that confirms the product asset reaches the injected adapter.
 
+Implemented in `0.3.0`:
+
+- Verifiable `modelInvocation` metadata for GPT-Image calls.
+- Deterministic logo overlay as the default M6 logo strategy.
+- Product placement policy for safe area, crop prevention, and canvas coverage.
+- M6 QA checks for missing model invocation, missing product image input, missing logo overlay, out-of-bounds products, paste artifacts, lighting mismatch, and text panel dominance.
+
 ## Goal
 
 Move Aurora OS from a deterministic brand image pipeline toward a structured native brand visual system:

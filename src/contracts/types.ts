@@ -131,13 +131,57 @@ export interface ProductRenderSpec {
   preserveDetails: string[];
   maxDistortion: "none" | "minor";
   fallback: "overlay_if_failed" | "fail_if_not_integrated";
+  placementPolicy: ProductPlacementPolicy;
 }
 
 export interface LogoRenderSpec {
   asset: AssetRef;
-  strategy: "native_with_exactness_qa" | "deterministic_required";
+  strategy: "native_with_exactness_qa" | "deterministic_required" | "experimental_native_logo";
   minWidthPx: number;
   safeMarginPx: number;
+}
+
+export interface ProductPlacementPolicy {
+  safeAreaPx: number;
+  maxCanvasCoverage: number;
+  mustStayWithinCanvas: boolean;
+  allowCrop: false;
+}
+
+export interface BoxBounds {
+  x: number;
+  y: number;
+  width: number;
+  height: number;
+}
+
+export interface ProductLayoutManifest {
+  canvas: {
+    width: number;
+    height: number;
+  };
+  productBounds: BoxBounds;
+  productCoverage: number;
+  pasteArtifactDetected: boolean;
+  lightingMismatchDetected: boolean;
+  textPanelCoverage: number;
+}
+
+export interface LogoOverlayMetadata {
+  applied: boolean;
+  assetId: string;
+  strategy: "deterministic_overlay";
+  bounds?: BoxBounds;
+}
+
+export interface ModelInvocationMetadata {
+  provider: "hermes" | "openai" | "mock";
+  modelId: string;
+  requestId: string;
+  usedImageInputs: string[];
+  usedProductAssetId: string;
+  usedLogoAssetId?: string;
+  generatedAt: string;
 }
 
 export interface SceneSpec {
@@ -267,6 +311,13 @@ export type QAIssueCode =
   | "NATIVE_PRODUCT_REFERENCE_USED"
   | "PRODUCT_NOT_OVERLAY_ONLY"
   | "PRODUCT_INTEGRATION_REVIEW_REQUIRED"
+  | "GPT_IMAGE_INVOCATION_MISSING"
+  | "PRODUCT_IMAGE_INPUT_MISSING"
+  | "LOGO_ASSET_OVERLAY_MISSING"
+  | "PRODUCT_OUT_OF_BOUNDS"
+  | "PRODUCT_PASTE_ARTIFACT"
+  | "BACKGROUND_PRODUCT_LIGHTING_MISMATCH"
+  | "TEXT_PANEL_DOMINATES_PRODUCT"
   | "NO_UNKNOWN_ERROR";
 
 export const QA_ISSUE_CODE = {
@@ -284,6 +335,13 @@ export const QA_ISSUE_CODE = {
   NATIVE_PRODUCT_REFERENCE_USED: "NATIVE_PRODUCT_REFERENCE_USED",
   PRODUCT_NOT_OVERLAY_ONLY: "PRODUCT_NOT_OVERLAY_ONLY",
   PRODUCT_INTEGRATION_REVIEW_REQUIRED: "PRODUCT_INTEGRATION_REVIEW_REQUIRED",
+  GPT_IMAGE_INVOCATION_MISSING: "GPT_IMAGE_INVOCATION_MISSING",
+  PRODUCT_IMAGE_INPUT_MISSING: "PRODUCT_IMAGE_INPUT_MISSING",
+  LOGO_ASSET_OVERLAY_MISSING: "LOGO_ASSET_OVERLAY_MISSING",
+  PRODUCT_OUT_OF_BOUNDS: "PRODUCT_OUT_OF_BOUNDS",
+  PRODUCT_PASTE_ARTIFACT: "PRODUCT_PASTE_ARTIFACT",
+  BACKGROUND_PRODUCT_LIGHTING_MISMATCH: "BACKGROUND_PRODUCT_LIGHTING_MISMATCH",
+  TEXT_PANEL_DOMINATES_PRODUCT: "TEXT_PANEL_DOMINATES_PRODUCT",
   NO_UNKNOWN_ERROR: "NO_UNKNOWN_ERROR",
 } as const satisfies Record<string, QAIssueCode>;
 
@@ -316,6 +374,9 @@ export interface GeneratedImageV2 extends GeneratedImage {
   usedLogoReference: boolean;
   usedOverlayFallback: boolean;
   inputAssetIds: string[];
+  modelInvocation: ModelInvocationMetadata;
+  productLayout?: ProductLayoutManifest;
+  logoOverlay?: LogoOverlayMetadata;
 }
 
 export interface Image2GenerationRequest {

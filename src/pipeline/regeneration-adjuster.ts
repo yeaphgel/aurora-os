@@ -115,6 +115,20 @@ function toRegenerationConstraints(issue: QAIssue): string[] {
       return ["must avoid overlay-only product placement", ...hint];
     case QA_ISSUE_CODE.PRODUCT_INTEGRATION_REVIEW_REQUIRED:
       return ["must pass product integration review before approval", ...hint];
+    case QA_ISSUE_CODE.GPT_IMAGE_INVOCATION_MISSING:
+      return ["must include verifiable GPT-Image invocation metadata", ...hint];
+    case QA_ISSUE_CODE.PRODUCT_IMAGE_INPUT_MISSING:
+      return ["must pass the product asset as an image input/reference", ...hint];
+    case QA_ISSUE_CODE.LOGO_ASSET_OVERLAY_MISSING:
+      return ["must apply deterministic logo overlay from the original logo asset", ...hint];
+    case QA_ISSUE_CODE.PRODUCT_OUT_OF_BOUNDS:
+      return ["must keep the product inside the configured canvas safe area", ...hint];
+    case QA_ISSUE_CODE.PRODUCT_PASTE_ARTIFACT:
+      return ["must avoid pasted-product artifacts and hard rectangular shadows", ...hint];
+    case QA_ISSUE_CODE.BACKGROUND_PRODUCT_LIGHTING_MISMATCH:
+      return ["must align product lighting and perspective with the generated scene", ...hint];
+    case QA_ISSUE_CODE.TEXT_PANEL_DOMINATES_PRODUCT:
+      return ["must reduce text panel dominance in the product visual", ...hint];
     case QA_ISSUE_CODE.NO_UNKNOWN_ERROR:
       return hint;
   }
