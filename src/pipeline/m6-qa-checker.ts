@@ -73,14 +73,38 @@ export function checkM6ProductIntegrationQA(request: {
       message: "M6 result used overlay fallback instead of native product integration.",
       regenerationHint: "Regenerate through the native product reference path before using overlay fallback.",
     });
+    issues.push({
+      code: QA_ISSUE_CODE.PRODUCT_OVERLAY_FALLBACK_USED,
+      severity: QA_ISSUE_SEVERITY.HARD_FAIL,
+      message: "M6.3 native product visuals cannot be approved when the product was composited as an overlay fallback.",
+      regenerationHint: "Pass the product image into GPT-Image 2 as a product reference and regenerate scene-integrated output.",
+    });
   }
 
-  if (request.brief.logoSpec.strategy === "deterministic_required" && !request.image?.logoOverlay?.applied) {
+  if (
+    request.brief.logoSpec.strategy === "deterministic_required" &&
+    (!request.image?.logoOverlay?.applied || request.image.logoOverlay.assetId !== request.brief.logoSpec.asset.assetId)
+  ) {
     issues.push({
       code: QA_ISSUE_CODE.LOGO_ASSET_OVERLAY_MISSING,
       severity: QA_ISSUE_SEVERITY.HARD_FAIL,
       message: "Deterministic logo overlay from the original logo asset is required but missing.",
       regenerationHint: "Apply the original logo asset after image generation instead of asking GPT-Image to redraw it.",
+    });
+    issues.push({
+      code: QA_ISSUE_CODE.LOGO_ASSET_OVERLAY_APPLIED,
+      severity: QA_ISSUE_SEVERITY.HARD_FAIL,
+      message: "Official logo overlay was not proven to use the configured logo asset.",
+      regenerationHint: "Apply the original logo asset and return logoOverlay.applied with the matching assetId.",
+    });
+  }
+
+  if (request.brief.qaPolicy.requireLogoReservedZoneClean && request.image?.logoOverlay?.reservedZoneClean === false) {
+    issues.push({
+      code: QA_ISSUE_CODE.LOGO_RESERVED_ZONE_CLEAN,
+      severity: QA_ISSUE_SEVERITY.HARD_FAIL,
+      message: "Logo reserved zone is not clean enough for exact asset overlay.",
+      regenerationHint: "Reserve a low-detail, high-contrast logo area without white cards or busy texture.",
     });
   }
 
@@ -118,15 +142,61 @@ export function checkM6ProductIntegrationQA(request: {
         message: "Product and background lighting appear mismatched.",
         regenerationHint: "Repair product integration with coherent water lighting, shadow, and perspective.",
       });
+      issues.push({
+        code: QA_ISSUE_CODE.PRODUCT_LIGHTING_MISMATCH,
+        severity: QA_ISSUE_SEVERITY.WARNING,
+        message: "Product lighting does not match the generated scene.",
+        regenerationHint: "Regenerate with coherent water light rays, product shadow, reflection, and perspective.",
+      });
     }
 
-    if (layout.textPanelCoverage > 0.28) {
+    if (layout.textPanelCoverage > request.brief.qaPolicy.maxNativeTextCoverage) {
       issues.push({
         code: QA_ISSUE_CODE.TEXT_PANEL_DOMINATES_PRODUCT,
         severity: QA_ISSUE_SEVERITY.WARNING,
         message: "Text panel coverage is too high for M6 native product visuals.",
         regenerationHint: "Reduce text panel size and let the product-scene relationship carry the visual.",
       });
+    }
+
+    if (layout.textOccludesProduct) {
+      issues.push({
+        code: QA_ISSUE_CODE.TEXT_OCCLUDES_PRODUCT,
+        severity: QA_ISSUE_SEVERITY.HARD_FAIL,
+        message: "Native Image 2 typography overlaps or obscures the product.",
+        regenerationHint: "Move native typography into safe negative space and keep product marks, windows, and edges visible.",
+      });
+    }
+
+    if (request.brief.qaPolicy.forbidGeneratedBrandMarksOutsideOverlay && layout.unauthorizedBrandMarksDetected) {
+      issues.push({
+        code: QA_ISSUE_CODE.UNAUTHORIZED_GENERATED_BRAND_MARKS,
+        severity: QA_ISSUE_SEVERITY.HARD_FAIL,
+        message: "Generated brand marks were detected outside deterministic overlay areas.",
+        regenerationHint: "Regenerate a clean visual without model-generated brand text on gear, product surfaces, or background objects.",
+      });
+    }
+  }
+
+  if (request.brief.qaPolicy.requireNativeTextOcr && request.image) {
+    if (!request.image.textValidation?.ocrChecked) {
+      issues.push({
+        code: QA_ISSUE_CODE.NATIVE_TEXT_OCR_MISMATCH,
+        severity: QA_ISSUE_SEVERITY.WARNING,
+        message: "Native Image 2 typography was not verified by OCR metadata.",
+        regenerationHint: "Run OCR against native text blocks and return mismatch metadata before approval.",
+      });
+    } else {
+      for (const mismatch of request.image.textValidation.mismatches) {
+        issues.push({
+          code: QA_ISSUE_CODE.NATIVE_TEXT_OCR_MISMATCH,
+          severity: mismatch.severity,
+          message: `Native text OCR mismatch for ${mismatch.role}: expected "${mismatch.expected}"${
+            mismatch.detected ? ` but detected "${mismatch.detected}"` : ""
+          }.`,
+          regenerationHint: "Regenerate or repair Image 2 typography with exact required text.",
+        });
+      }
     }
   }
 

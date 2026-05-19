@@ -129,6 +129,20 @@ function toRegenerationConstraints(issue: QAIssue): string[] {
       return ["must align product lighting and perspective with the generated scene", ...hint];
     case QA_ISSUE_CODE.TEXT_PANEL_DOMINATES_PRODUCT:
       return ["must reduce text panel dominance in the product visual", ...hint];
+    case QA_ISSUE_CODE.UNAUTHORIZED_GENERATED_BRAND_MARKS:
+      return ["must remove model-generated brand marks outside deterministic overlay areas", ...hint];
+    case QA_ISSUE_CODE.LOGO_ASSET_OVERLAY_APPLIED:
+      return ["must apply the official logo asset through deterministic overlay", ...hint];
+    case QA_ISSUE_CODE.LOGO_RESERVED_ZONE_CLEAN:
+      return ["must reserve a clean high-contrast area for official logo overlay", ...hint];
+    case QA_ISSUE_CODE.NATIVE_TEXT_OCR_MISMATCH:
+      return ["must render native Image 2 typography with exact requested text", ...hint];
+    case QA_ISSUE_CODE.TEXT_OCCLUDES_PRODUCT:
+      return ["must keep native typography away from the product and product marks", ...hint];
+    case QA_ISSUE_CODE.PRODUCT_OVERLAY_FALLBACK_USED:
+      return ["must use product image input for native integration instead of overlay fallback", ...hint];
+    case QA_ISSUE_CODE.PRODUCT_LIGHTING_MISMATCH:
+      return ["must align product lighting with the generated scene", ...hint];
     case QA_ISSUE_CODE.NO_UNKNOWN_ERROR:
       return hint;
   }

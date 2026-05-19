@@ -116,12 +116,30 @@ export type BrandStoryMode =
   | "comparison_claim";
 
 export type TextEditPolicy = "exact" | "locked_meaning" | "creative";
+export type TextRenderStrategy = "native_image2_typography" | "deterministic_overlay";
+export type LogoRenderStrategy = "deterministic_required" | "experimental_native_logo";
 
 export interface TextBlockSpec {
   role: "brand" | "product_name" | "headline" | "subhead" | "supporting" | "cta";
   text: string;
   priority: "required" | "recommended" | "optional";
   editPolicy: TextEditPolicy;
+}
+
+export interface NativeTextBlockSpec extends TextBlockSpec {
+  renderStrategy: "native_image2_typography";
+  ocrPolicy: "hard_fail_if_wrong" | "warning_if_wrong";
+  maxCoverageRatio: number;
+  mustNotOccludeProduct: boolean;
+}
+
+export interface DeterministicLogoBlockSpec {
+  role: "official_logo";
+  asset: AssetRef;
+  strategy: "deterministic_required";
+  bounds: BoxBounds;
+  safeMarginPx: number;
+  preserveAspectRatio: true;
 }
 
 export interface ProductRenderSpec {
@@ -165,6 +183,8 @@ export interface ProductLayoutManifest {
   pasteArtifactDetected: boolean;
   lightingMismatchDetected: boolean;
   textPanelCoverage: number;
+  textOccludesProduct?: boolean;
+  unauthorizedBrandMarksDetected?: boolean;
 }
 
 export interface LogoOverlayMetadata {
@@ -172,6 +192,8 @@ export interface LogoOverlayMetadata {
   assetId: string;
   strategy: "deterministic_overlay";
   bounds?: BoxBounds;
+  reservedZoneClean?: boolean;
+  contrastOk?: boolean;
 }
 
 export interface ModelInvocationMetadata {
@@ -191,11 +213,39 @@ export interface SceneSpec {
   mustAvoid: string[];
 }
 
+export interface DeterministicOverlayPlan {
+  strategy: "deterministic_logo_and_text" | "deterministic_logo_only";
+  logo: {
+    asset: AssetRef;
+    position: OverlayPosition;
+    bounds: BoxBounds;
+    preserveAspectRatio: true;
+  };
+  reservedZone: {
+    bounds: BoxBounds;
+    requireLowComplexity: boolean;
+    allowWhiteCard: false;
+    minContrastRatio: number;
+  };
+  text: Array<{
+    role: "slogan" | "supporting";
+    text: string;
+    bounds: BoxBounds;
+    color: string;
+    align: "left" | "center" | "right";
+  }>;
+  forbiddenGeneratedTextZones: string[];
+}
+
 export interface VisualQAPolicy {
   requireProductReferenceAttached: boolean;
   requireNativeProductReference: boolean;
   requireProductNotOverlayOnly: boolean;
   requireHumanIntegrationReview: boolean;
+  forbidGeneratedBrandMarksOutsideOverlay: boolean;
+  requireLogoReservedZoneClean: boolean;
+  requireNativeTextOcr: boolean;
+  maxNativeTextCoverage: number;
 }
 
 export interface ImageBriefV2 {
@@ -207,6 +257,8 @@ export interface ImageBriefV2 {
     height: number;
   };
   renderMode: M6RenderMode;
+  textStrategy: TextRenderStrategy;
+  logoStrategy: LogoRenderStrategy;
   creativeIntent: string;
   visualType: BrandedProductVisualType;
   storyMode: BrandStoryMode;
@@ -216,6 +268,8 @@ export interface ImageBriefV2 {
     productPlacement: "scene_center" | "scene_foreground" | "environmental";
   };
   textBlocks: TextBlockSpec[];
+  nativeTextBlocks: NativeTextBlockSpec[];
+  deterministicLogoBlocks: DeterministicLogoBlockSpec[];
   logoSpec: LogoRenderSpec;
   productSpec: ProductRenderSpec;
   sceneSpec: SceneSpec;
@@ -225,9 +279,14 @@ export interface ImageBriefV2 {
     useGlobalPremiumReferences: boolean;
   };
   qaPolicy: VisualQAPolicy;
+  overlayPlan: DeterministicOverlayPlan;
+  logoOverlayPlan: DeterministicOverlayPlan;
   promptPayload: {
     systemPrompt: string;
+    backgroundPrompt: string;
+    image2Prompt: string;
     userPrompt: string;
+    overlayInstruction: string;
     negativePrompt: string;
   };
   negativeConstraints: string[];
@@ -318,6 +377,13 @@ export type QAIssueCode =
   | "PRODUCT_PASTE_ARTIFACT"
   | "BACKGROUND_PRODUCT_LIGHTING_MISMATCH"
   | "TEXT_PANEL_DOMINATES_PRODUCT"
+  | "UNAUTHORIZED_GENERATED_BRAND_MARKS"
+  | "LOGO_ASSET_OVERLAY_APPLIED"
+  | "LOGO_RESERVED_ZONE_CLEAN"
+  | "NATIVE_TEXT_OCR_MISMATCH"
+  | "TEXT_OCCLUDES_PRODUCT"
+  | "PRODUCT_OVERLAY_FALLBACK_USED"
+  | "PRODUCT_LIGHTING_MISMATCH"
   | "NO_UNKNOWN_ERROR";
 
 export const QA_ISSUE_CODE = {
@@ -342,6 +408,13 @@ export const QA_ISSUE_CODE = {
   PRODUCT_PASTE_ARTIFACT: "PRODUCT_PASTE_ARTIFACT",
   BACKGROUND_PRODUCT_LIGHTING_MISMATCH: "BACKGROUND_PRODUCT_LIGHTING_MISMATCH",
   TEXT_PANEL_DOMINATES_PRODUCT: "TEXT_PANEL_DOMINATES_PRODUCT",
+  UNAUTHORIZED_GENERATED_BRAND_MARKS: "UNAUTHORIZED_GENERATED_BRAND_MARKS",
+  LOGO_ASSET_OVERLAY_APPLIED: "LOGO_ASSET_OVERLAY_APPLIED",
+  LOGO_RESERVED_ZONE_CLEAN: "LOGO_RESERVED_ZONE_CLEAN",
+  NATIVE_TEXT_OCR_MISMATCH: "NATIVE_TEXT_OCR_MISMATCH",
+  TEXT_OCCLUDES_PRODUCT: "TEXT_OCCLUDES_PRODUCT",
+  PRODUCT_OVERLAY_FALLBACK_USED: "PRODUCT_OVERLAY_FALLBACK_USED",
+  PRODUCT_LIGHTING_MISMATCH: "PRODUCT_LIGHTING_MISMATCH",
   NO_UNKNOWN_ERROR: "NO_UNKNOWN_ERROR",
 } as const satisfies Record<string, QAIssueCode>;
 
@@ -377,6 +450,17 @@ export interface GeneratedImageV2 extends GeneratedImage {
   modelInvocation: ModelInvocationMetadata;
   productLayout?: ProductLayoutManifest;
   logoOverlay?: LogoOverlayMetadata;
+  textValidation?: NativeTextValidationMetadata;
+}
+
+export interface NativeTextValidationMetadata {
+  ocrChecked: boolean;
+  mismatches: Array<{
+    role: TextBlockSpec["role"];
+    expected: string;
+    detected?: string;
+    severity: QAIssueSeverity;
+  }>;
 }
 
 export interface Image2GenerationRequest {

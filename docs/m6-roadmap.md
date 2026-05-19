@@ -19,6 +19,14 @@ Implemented in `0.3.0`:
 - Product placement policy for safe area, crop prevention, and canvas coverage.
 - M6 QA checks for missing model invocation, missing product image input, missing logo overlay, out-of-bounds products, paste artifacts, lighting mismatch, and text panel dominance.
 
+Implemented in `0.4.0`:
+
+- M6.3 native Image 2 typography strategy: Image 2 may render approved headline, product name, and subhead text.
+- Exact official logo strategy: the image model must reserve a clean logo zone, then Hermes/Aurora applies the original logo asset deterministically.
+- Split prompt payloads: `image2Prompt` for photographic product-scene generation and native text layout, plus `overlayInstruction` for exact logo asset application.
+- `logoOverlayPlan`, `nativeTextBlocks`, and `deterministicLogoBlocks` in `ImageBriefV2` so Hermes can separate generated typography from official logo compositing.
+- M6 QA checks for unauthorized generated brand marks, dirty logo reserved zones, native text OCR mismatches, text covering product, overlay fallback, and product-scene lighting mismatch.
+
 ## Goal
 
 Move Aurora OS from a deterministic brand image pipeline toward a structured native brand visual system:
