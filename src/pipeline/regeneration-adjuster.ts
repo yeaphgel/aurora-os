@@ -143,6 +143,18 @@ function toRegenerationConstraints(issue: QAIssue): string[] {
       return ["must use product image input for native integration instead of overlay fallback", ...hint];
     case QA_ISSUE_CODE.PRODUCT_LIGHTING_MISMATCH:
       return ["must align product lighting with the generated scene", ...hint];
+    case QA_ISSUE_CODE.TEXT_TOO_SMALL:
+      return ["must increase native headline and product-name typography size", ...hint];
+    case QA_ISSUE_CODE.COMPOSITION_EMPTY_TOP:
+      return ["must reduce empty top composition with meaningful headline, product depth, or light narrative", ...hint];
+    case QA_ISSUE_CODE.PRODUCT_SCENE_CONTACT_MISSING:
+      return ["must add visible water-light contact and depth around the product", ...hint];
+    case QA_ISSUE_CODE.HORIZON_BAND_CUTS_PRODUCT:
+      return ["must remove horizontal bands or dividers that cut through the product", ...hint];
+    case QA_ISSUE_CODE.SECONDARY_ASSET_DISTRACTS:
+      return ["must suppress secondary accessories so the hero product remains dominant", ...hint];
+    case QA_ISSUE_CODE.LOGO_DOMINATES_LAYOUT:
+      return ["must keep official logo subordinate to headline and hero product", ...hint];
     case QA_ISSUE_CODE.NO_UNKNOWN_ERROR:
       return hint;
   }

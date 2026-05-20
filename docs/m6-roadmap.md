@@ -27,6 +27,14 @@ Implemented in `0.4.0`:
 - `logoOverlayPlan`, `nativeTextBlocks`, and `deterministicLogoBlocks` in `ImageBriefV2` so Hermes can separate generated typography from official logo compositing.
 - M6 QA checks for unauthorized generated brand marks, dirty logo reserved zones, native text OCR mismatches, text covering product, overlay fallback, and product-scene lighting mismatch.
 
+Implemented in `0.5.0`:
+
+- M7 `ImageBriefV3` contract for creative direction and product fusion while preserving M6.3 compatibility.
+- `posterArchetype = cinematic_product_ad` with explicit composition, typography, product fusion, and asset priority plans.
+- `runSingleImagePipelineV3(input, { imageAdapterV3 })` for Hermes-owned GPT-Image 2 execution with M7 metadata.
+- M7 prompt strategy for high-end underwater product advertising: larger headline, stronger product dominance, product-scene contact, no empty blue-water layout, no horizontal band cutting the product, and suppressed secondary accessories.
+- M7 QA codes for text too small, empty top composition, missing product scene contact, horizon band product cuts, distracting secondary assets, and logo dominance.
+
 ## Goal
 
 Move Aurora OS from a deterministic brand image pipeline toward a structured native brand visual system:

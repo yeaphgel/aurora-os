@@ -1,6 +1,8 @@
 export * from "./brief-builder.js";
 export * from "./brief-builder-v2.js";
+export * from "./brief-builder-v3.js";
 export * from "./m6-qa-checker.js";
+export * from "./m7-qa-checker.js";
 export * from "./mock-image-2-adapter.js";
 export * from "./multi-image-runner.js";
 export * from "./overlay-engine.js";
@@ -8,3 +10,4 @@ export * from "./qa-checker.js";
 export * from "./regeneration-adjuster.js";
 export * from "./single-image-runner.js";
 export * from "./single-image-runner-v2.js";
+export * from "./single-image-runner-v3.js";

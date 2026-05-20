@@ -5,12 +5,13 @@ import {
   type AssetRef,
   type GeneratedImageV2,
   type ImageBriefV2,
+  type ImageBriefV3,
   type QAIssue,
   type QAResult,
 } from "../contracts/index.js";
 
 export function checkM6ProductIntegrationQA(request: {
-  brief: ImageBriefV2;
+  brief: ImageBriefV2 | ImageBriefV3;
   image?: GeneratedImageV2 | undefined;
   productAsset?: AssetRef | undefined;
   checkedAt: string;

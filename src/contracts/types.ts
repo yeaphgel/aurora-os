@@ -187,6 +187,16 @@ export interface ProductLayoutManifest {
   unauthorizedBrandMarksDetected?: boolean;
 }
 
+export interface M7QualityManifest {
+  headlineHeightRatio?: number;
+  productNameHeightRatio?: number;
+  topEmptySpaceRatio?: number;
+  productSceneContactDetected?: boolean;
+  horizonBandCutsProduct?: boolean;
+  secondaryAssetDistracts?: boolean;
+  logoDominatesLayout?: boolean;
+}
+
 export interface LogoOverlayMetadata {
   applied: boolean;
   assetId: string;
@@ -248,6 +258,57 @@ export interface VisualQAPolicy {
   maxNativeTextCoverage: number;
 }
 
+export type PosterArchetype = "cinematic_product_ad";
+
+export interface RatioRange {
+  min: number;
+  max: number;
+}
+
+export interface CompositionPlan {
+  heroProductArea: BoxBounds;
+  headlineArea: BoxBounds;
+  logoReservedArea: BoxBounds;
+  productWidthRatioRange: RatioRange;
+  maxTopEmptySpaceRatio: number;
+  maxSecondaryAssetCoverage: number;
+  forbidHorizonBandThroughProduct: boolean;
+}
+
+export interface TypographyPlan {
+  headline: {
+    text: string;
+    minHeightRatio: number;
+    maxHeightRatio: number;
+    priority: "required";
+  };
+  productName: {
+    text: string;
+    minHeightRatio: number;
+    maxHeightRatio: number;
+    priority: "required";
+  };
+  subhead: {
+    text: string;
+    maxLines: 1 | 2;
+    priority: "recommended";
+  };
+  maxTotalCoverageRatio: number;
+}
+
+export interface ProductFusionPlan {
+  requireSceneContact: true;
+  allowProductOverlayFallback: false;
+  prioritizeAdFusionOverExactGeometry: true;
+  requiredSignals: string[];
+}
+
+export interface AssetPriorityPlan {
+  primaryProductAssetId: string;
+  secondaryAssets: "suppress" | "allow_subtle_context";
+  maxSecondaryAssetCoverage: number;
+}
+
 export interface ImageBriefV2 {
   briefId: string;
   schemaVersion: "m6.0";
@@ -294,6 +355,15 @@ export interface ImageBriefV2 {
   variantCount: 1 | 4;
 }
 
+export interface ImageBriefV3 extends Omit<ImageBriefV2, "schemaVersion"> {
+  schemaVersion: "m7.0";
+  posterArchetype: PosterArchetype;
+  compositionPlan: CompositionPlan;
+  typographyPlan: TypographyPlan;
+  productFusionPlan: ProductFusionPlan;
+  assetPriorityPlan: AssetPriorityPlan;
+}
+
 export interface BriefBuilderV2Request {
   input: AuroraImagePipelineInput;
   variantIndex: number;
@@ -303,6 +373,12 @@ export interface BriefBuilderV2Request {
 
 export interface BriefBuilderV2 {
   build(request: BriefBuilderV2Request): ImageBriefV2;
+}
+
+export type BriefBuilderV3Request = BriefBuilderV2Request;
+
+export interface BriefBuilderV3 {
+  build(request: BriefBuilderV3Request): ImageBriefV3;
 }
 
 export interface BriefBuilderRequest {
@@ -384,6 +460,12 @@ export type QAIssueCode =
   | "TEXT_OCCLUDES_PRODUCT"
   | "PRODUCT_OVERLAY_FALLBACK_USED"
   | "PRODUCT_LIGHTING_MISMATCH"
+  | "TEXT_TOO_SMALL"
+  | "COMPOSITION_EMPTY_TOP"
+  | "PRODUCT_SCENE_CONTACT_MISSING"
+  | "HORIZON_BAND_CUTS_PRODUCT"
+  | "SECONDARY_ASSET_DISTRACTS"
+  | "LOGO_DOMINATES_LAYOUT"
   | "NO_UNKNOWN_ERROR";
 
 export const QA_ISSUE_CODE = {
@@ -415,6 +497,12 @@ export const QA_ISSUE_CODE = {
   TEXT_OCCLUDES_PRODUCT: "TEXT_OCCLUDES_PRODUCT",
   PRODUCT_OVERLAY_FALLBACK_USED: "PRODUCT_OVERLAY_FALLBACK_USED",
   PRODUCT_LIGHTING_MISMATCH: "PRODUCT_LIGHTING_MISMATCH",
+  TEXT_TOO_SMALL: "TEXT_TOO_SMALL",
+  COMPOSITION_EMPTY_TOP: "COMPOSITION_EMPTY_TOP",
+  PRODUCT_SCENE_CONTACT_MISSING: "PRODUCT_SCENE_CONTACT_MISSING",
+  HORIZON_BAND_CUTS_PRODUCT: "HORIZON_BAND_CUTS_PRODUCT",
+  SECONDARY_ASSET_DISTRACTS: "SECONDARY_ASSET_DISTRACTS",
+  LOGO_DOMINATES_LAYOUT: "LOGO_DOMINATES_LAYOUT",
   NO_UNKNOWN_ERROR: "NO_UNKNOWN_ERROR",
 } as const satisfies Record<string, QAIssueCode>;
 
@@ -453,6 +541,10 @@ export interface GeneratedImageV2 extends GeneratedImage {
   textValidation?: NativeTextValidationMetadata;
 }
 
+export interface GeneratedImageV3 extends GeneratedImageV2 {
+  m7Quality?: M7QualityManifest;
+}
+
 export interface NativeTextValidationMetadata {
   ocrChecked: boolean;
   mismatches: Array<{
@@ -486,6 +578,14 @@ export interface Image2GenerationRequestV2 {
 
 export interface Image2AdapterV2 {
   generate(request: Image2GenerationRequestV2): Promise<GeneratedImageV2>;
+}
+
+export interface Image2GenerationRequestV3 extends Omit<Image2GenerationRequestV2, "brief"> {
+  brief: ImageBriefV3;
+}
+
+export interface Image2AdapterV3 {
+  generate(request: Image2GenerationRequestV3): Promise<GeneratedImageV3>;
 }
 
 export interface MockImage2AdapterOptions {
@@ -562,6 +662,13 @@ export interface SingleImagePipelineV2Dependencies {
   idFactory?: PipelineIdFactory;
 }
 
+export interface SingleImagePipelineV3Dependencies {
+  imageAdapterV3?: Image2AdapterV3;
+  briefBuilderV3?: BriefBuilderV3;
+  now?: () => string;
+  idFactory?: PipelineIdFactory;
+}
+
 export interface GenerationItem {
   itemId: string;
   index: number;
@@ -624,6 +731,21 @@ export interface M6GenerationItem {
   };
 }
 
+export interface M7GenerationItem extends Omit<M6GenerationItem, "brief" | "image" | "finalImage" | "m6"> {
+  brief: ImageBriefV3;
+  image?: GeneratedImageV3;
+  finalImage?: GeneratedImageV3;
+  m7: {
+    schemaVersion: "m7.0";
+    posterArchetype: PosterArchetype;
+    productReferenceAttached: boolean;
+    nativeProductReferenceUsed: boolean;
+    overlayFallbackUsed: boolean;
+    textStrategy: TextRenderStrategy;
+    logoStrategy: LogoRenderStrategy;
+  };
+}
+
 export interface M6GenerationRun {
   runId: string;
   count: 1;
@@ -639,6 +761,26 @@ export interface M6PipelineResult {
   run: M6GenerationRun;
   m6: {
     schemaVersion: "m6.0";
+    adapterBoundary: "injected";
+    stableApprovalReady: boolean;
+  };
+}
+
+export interface M7GenerationRun {
+  runId: string;
+  count: 1;
+  status: RunStatus;
+  items: M7GenerationItem[];
+  summary: GenerationRunSummary;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface M7PipelineResult {
+  jobId: string;
+  run: M7GenerationRun;
+  m7: {
+    schemaVersion: "m7.0";
     adapterBoundary: "injected";
     stableApprovalReady: boolean;
   };
