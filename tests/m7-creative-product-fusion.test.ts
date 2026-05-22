@@ -56,6 +56,9 @@ describe("M7 creative product fusion", () => {
     expect(brief.assetPriorityPlan.secondaryAssets).toBe("suppress");
     expect(brief.logoOverlayPlan.logo.asset.assetId).toBe(sampleLogoAsset.assetId);
     expect(brief.promptPayload.image2Prompt).toContain("55% to 75% of canvas width");
+    expect(brief.promptPayload.image2Prompt).toContain("Generate exactly one main product instance");
+    expect(brief.promptPayload.image2Prompt).toContain("exactly three text blocks");
+    expect(brief.promptPayload.image2Prompt).toContain("Do not generate any other text");
     expect(brief.promptPayload.image2Prompt).toContain("water caustics");
     expect(brief.promptPayload.image2Prompt).toContain("Touch the future");
     expect(brief.promptPayload.image2Prompt).toContain("Suppress secondary accessories");
@@ -105,6 +108,29 @@ describe("M7 creative product fusion", () => {
           },
           textValidation: {
             ocrChecked: true,
+            ocrItems: [
+              {
+                text: "Touch the future",
+                bounds: { x: 80, y: 120, width: 760, height: 133 },
+                heightRatio: 0.08,
+                authorized: true,
+                role: "headline",
+              },
+              {
+                text: "SeaTouch 4 Max+",
+                bounds: { x: 80, y: 270, width: 460, height: 66 },
+                heightRatio: 0.04,
+                authorized: true,
+                role: "product_name",
+              },
+              {
+                text: "Underwater smartphone ecosystem for focused ocean creators",
+                bounds: { x: 80, y: 350, width: 820, height: 38 },
+                heightRatio: 0.023,
+                authorized: true,
+                role: "subhead",
+              },
+            ],
             mismatches: [],
           },
           m7Quality: {
@@ -115,6 +141,12 @@ describe("M7 creative product fusion", () => {
             horizonBandCutsProduct: false,
             secondaryAssetDistracts: false,
             logoDominatesLayout: false,
+            productInstanceCount: 1,
+            productEdgeIntegrated: true,
+            foregroundPasteArtifactDetected: false,
+            unauthorizedTextDetected: false,
+            textBoxOverlapDetected: false,
+            tinyTextDetected: false,
           },
         };
       },
@@ -174,6 +206,15 @@ describe("M7 creative product fusion", () => {
         },
         textValidation: {
           ocrChecked: true,
+          ocrItems: [
+            {
+              text: "Touch the future",
+              bounds: { x: 80, y: 120, width: 220, height: 33 },
+              heightRatio: 0.02,
+              authorized: true,
+              role: "headline",
+            },
+          ],
           mismatches: [],
         },
         m7Quality: {
@@ -184,6 +225,12 @@ describe("M7 creative product fusion", () => {
           horizonBandCutsProduct: true,
           secondaryAssetDistracts: true,
           logoDominatesLayout: true,
+          productInstanceCount: 2,
+          productEdgeIntegrated: false,
+          foregroundPasteArtifactDetected: true,
+          unauthorizedTextDetected: false,
+          textBoxOverlapDetected: false,
+          tinyTextDetected: false,
         },
       }),
     };
@@ -197,7 +244,141 @@ describe("M7 creative product fusion", () => {
     expect(issueCodes).toContain(QA_ISSUE_CODE.HORIZON_BAND_CUTS_PRODUCT);
     expect(issueCodes).toContain(QA_ISSUE_CODE.SECONDARY_ASSET_DISTRACTS);
     expect(issueCodes).toContain(QA_ISSUE_CODE.LOGO_DOMINATES_LAYOUT);
+    expect(issueCodes).toContain(QA_ISSUE_CODE.PRODUCT_INSTANCE_DUPLICATED);
+    expect(issueCodes).toContain(QA_ISSUE_CODE.PRODUCT_EDGE_NOT_INTEGRATED);
+    expect(issueCodes).toContain(QA_ISSUE_CODE.FOREGROUND_PRODUCT_PASTE_ARTIFACT);
     expect(result.m7.stableApprovalReady).toBe(false);
+  });
+
+  it("hard-fails when M7.1 OCR and visual evidence is missing", async () => {
+    const adapter: Image2AdapterV3 = {
+      generate: async (request) => ({
+        imageId: "m7_missing_evidence",
+        uri: "asset://hermes/m7/missing-evidence.png",
+        width: request.brief.size.width,
+        height: request.brief.size.height,
+        format: "png",
+        adapterMode: "hermes_live",
+        usedProductReference: true,
+        usedLogoReference: false,
+        usedOverlayFallback: false,
+        inputAssetIds: [request.productAsset.assetId],
+        modelInvocation: {
+          provider: "hermes",
+          modelId: "gpt-image-2",
+          requestId: "req_m7_missing_evidence",
+          usedImageInputs: [request.productAsset.assetId],
+          usedProductAssetId: request.productAsset.assetId,
+          generatedAt: now(),
+        },
+        productLayout: {
+          canvas: request.brief.size,
+          productBounds: { x: 180, y: 560, width: 820, height: 620 },
+          productCoverage: 0.38,
+          pasteArtifactDetected: false,
+          lightingMismatchDetected: false,
+          textPanelCoverage: 0.14,
+          textOccludesProduct: false,
+          unauthorizedBrandMarksDetected: false,
+        },
+        logoOverlay: {
+          applied: true,
+          assetId: request.logoAsset.assetId,
+          strategy: "deterministic_overlay",
+          reservedZoneClean: true,
+        },
+        textValidation: {
+          ocrChecked: true,
+          mismatches: [],
+        },
+      }),
+    };
+
+    const result = await runSingleImagePipelineV3(makeInput(), { imageAdapterV3: adapter, now });
+    expect(result.run.items[0]?.issues.map((issue) => issue.code)).toContain(QA_ISSUE_CODE.VISUAL_QA_EVIDENCE_MISSING);
+  });
+
+  it("hard-fails unauthorized text, overlapping text, and tiny OCR text", async () => {
+    const adapter: Image2AdapterV3 = {
+      generate: async (request) => ({
+        imageId: "m7_bad_text_evidence",
+        uri: "asset://hermes/m7/bad-text-evidence.png",
+        width: request.brief.size.width,
+        height: request.brief.size.height,
+        format: "png",
+        adapterMode: "hermes_live",
+        usedProductReference: true,
+        usedLogoReference: false,
+        usedOverlayFallback: false,
+        inputAssetIds: [request.productAsset.assetId],
+        modelInvocation: {
+          provider: "hermes",
+          modelId: "gpt-image-2",
+          requestId: "req_m7_bad_text",
+          usedImageInputs: [request.productAsset.assetId],
+          usedProductAssetId: request.productAsset.assetId,
+          generatedAt: now(),
+        },
+        productLayout: {
+          canvas: request.brief.size,
+          productBounds: { x: 180, y: 560, width: 820, height: 620 },
+          productCoverage: 0.38,
+          pasteArtifactDetected: false,
+          lightingMismatchDetected: false,
+          textPanelCoverage: 0.14,
+          textOccludesProduct: false,
+          unauthorizedBrandMarksDetected: false,
+        },
+        logoOverlay: {
+          applied: true,
+          assetId: request.logoAsset.assetId,
+          strategy: "deterministic_overlay",
+          reservedZoneClean: true,
+        },
+        textValidation: {
+          ocrChecked: true,
+          ocrItems: [
+            {
+              text: "Touch the future",
+              bounds: { x: 80, y: 120, width: 760, height: 133 },
+              heightRatio: 0.08,
+              authorized: true,
+              role: "headline",
+              overlapsWith: ["SeaTouch 4 Max+"],
+            },
+            {
+              text: "DIVEVOLKOCEAN-TECH",
+              bounds: { x: 80, y: 105, width: 160, height: 20 },
+              heightRatio: 0.012,
+              authorized: false,
+            },
+          ],
+          mismatches: [],
+        },
+        m7Quality: {
+          headlineHeightRatio: 0.08,
+          productNameHeightRatio: 0.04,
+          topEmptySpaceRatio: 0.12,
+          productSceneContactDetected: true,
+          horizonBandCutsProduct: false,
+          secondaryAssetDistracts: false,
+          logoDominatesLayout: false,
+          productInstanceCount: 1,
+          productEdgeIntegrated: true,
+          foregroundPasteArtifactDetected: false,
+          unauthorizedTextDetected: true,
+          textBoxOverlapDetected: true,
+          tinyTextDetected: true,
+        },
+      }),
+    };
+
+    const result = await runSingleImagePipelineV3(makeInput(), { imageAdapterV3: adapter, now });
+    const issueCodes = result.run.items[0]?.issues.map((issue) => issue.code);
+
+    expect(issueCodes).toContain(QA_ISSUE_CODE.UNAUTHORIZED_TEXT_DETECTED);
+    expect(issueCodes).toContain(QA_ISSUE_CODE.TEXT_BOX_OVERLAP);
+    expect(issueCodes).toContain(QA_ISSUE_CODE.TEXT_TOO_SMALL_ANY);
   });
 
   it("requires an injected M7 adapter and product reference", async () => {

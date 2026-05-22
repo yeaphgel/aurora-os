@@ -155,6 +155,20 @@ function toRegenerationConstraints(issue: QAIssue): string[] {
       return ["must suppress secondary accessories so the hero product remains dominant", ...hint];
     case QA_ISSUE_CODE.LOGO_DOMINATES_LAYOUT:
       return ["must keep official logo subordinate to headline and hero product", ...hint];
+    case QA_ISSUE_CODE.UNAUTHORIZED_TEXT_DETECTED:
+      return ["must remove unauthorized OCR text and keep only approved M7 text blocks", ...hint];
+    case QA_ISSUE_CODE.TEXT_BOX_OVERLAP:
+      return ["must separate native text boxes without overlap", ...hint];
+    case QA_ISSUE_CODE.TEXT_TOO_SMALL_ANY:
+      return ["must remove micro text and keep all visible text readable", ...hint];
+    case QA_ISSUE_CODE.PRODUCT_INSTANCE_DUPLICATED:
+      return ["must generate exactly one main product instance", ...hint];
+    case QA_ISSUE_CODE.PRODUCT_EDGE_NOT_INTEGRATED:
+      return ["must integrate product edges with water haze, particles, caustics, and occlusion", ...hint];
+    case QA_ISSUE_CODE.FOREGROUND_PRODUCT_PASTE_ARTIFACT:
+      return ["must avoid foreground product paste artifacts", ...hint];
+    case QA_ISSUE_CODE.VISUAL_QA_EVIDENCE_MISSING:
+      return ["must provide OCR and visual QA evidence metadata", ...hint];
     case QA_ISSUE_CODE.NO_UNKNOWN_ERROR:
       return hint;
   }

@@ -19,12 +19,54 @@ export function checkM7CreativeQA(request: {
   const base = checkM6ProductIntegrationQA(request);
   const issues: QAIssue[] = [...base.issues];
   const quality = request.image?.m7Quality;
+  const textValidation = request.image?.textValidation;
 
   if (!request.image) {
     return {
       ...base,
       issues,
     };
+  }
+
+  if (!textValidation?.ocrChecked || !textValidation.ocrItems || textValidation.ocrItems.length === 0 || !quality) {
+    issues.push({
+      code: QA_ISSUE_CODE.VISUAL_QA_EVIDENCE_MISSING,
+      severity: QA_ISSUE_SEVERITY.HARD_FAIL,
+      message: "M7.1 requires OCR items and visual QA evidence before approval.",
+      regenerationHint: "Run OCR and visual QA, then return ocrItems and m7Quality evidence fields.",
+    });
+  }
+
+  if (textValidation?.ocrItems) {
+    const unauthorizedTexts = textValidation.ocrItems.filter((item) => !item.authorized);
+    if (unauthorizedTexts.length > 0 || quality?.unauthorizedTextDetected) {
+      issues.push({
+        code: QA_ISSUE_CODE.UNAUTHORIZED_TEXT_DETECTED,
+        severity: QA_ISSUE_SEVERITY.HARD_FAIL,
+        message: "OCR detected text outside the authorized M7 text set.",
+        regenerationHint: "Regenerate with only Touch the future, SeaTouch 4 Max+, and the approved short subhead.",
+      });
+    }
+
+    const overlappingTexts = textValidation.ocrItems.filter((item) => (item.overlapsWith?.length ?? 0) > 0);
+    if (overlappingTexts.length > 0 || quality?.textBoxOverlapDetected) {
+      issues.push({
+        code: QA_ISSUE_CODE.TEXT_BOX_OVERLAP,
+        severity: QA_ISSUE_SEVERITY.HARD_FAIL,
+        message: "OCR text boxes overlap or collide.",
+        regenerationHint: "Regenerate with separated headline, product name, and subhead text boxes.",
+      });
+    }
+
+    const tinyTexts = textValidation.ocrItems.filter((item) => item.heightRatio < 0.018);
+    if (tinyTexts.length > 0 || quality?.tinyTextDetected) {
+      issues.push({
+        code: QA_ISSUE_CODE.TEXT_TOO_SMALL_ANY,
+        severity: QA_ISSUE_SEVERITY.HARD_FAIL,
+        message: "OCR detected text that is too small for M7 poster output.",
+        regenerationHint: "Remove micro text and keep all visible typography readable.",
+      });
+    }
   }
 
   if (quality?.headlineHeightRatio !== undefined && quality.headlineHeightRatio < request.brief.typographyPlan.headline.minHeightRatio) {
@@ -90,6 +132,33 @@ export function checkM7CreativeQA(request: {
       severity: QA_ISSUE_SEVERITY.WARNING,
       message: "Logo visual weight dominates the headline or hero product.",
       regenerationHint: "Keep official logo exact but subordinate to the headline and hero product.",
+    });
+  }
+
+  if (quality?.productInstanceCount !== undefined && quality.productInstanceCount !== 1) {
+    issues.push({
+      code: QA_ISSUE_CODE.PRODUCT_INSTANCE_DUPLICATED,
+      severity: QA_ISSUE_SEVERITY.HARD_FAIL,
+      message: "M7 output must contain exactly one main product instance.",
+      regenerationHint: "Regenerate with one hero product only; do not create background duplicate products, ghost products, or secondary product cutouts.",
+    });
+  }
+
+  if (quality?.productEdgeIntegrated === false) {
+    issues.push({
+      code: QA_ISSUE_CODE.PRODUCT_EDGE_NOT_INTEGRATED,
+      severity: QA_ISSUE_SEVERITY.HARD_FAIL,
+      message: "Product edges are not sufficiently integrated with the water environment.",
+      regenerationHint: "Add water haze, particles crossing the product plane, caustic light, soft occlusion, and coherent edge lighting.",
+    });
+  }
+
+  if (quality?.foregroundPasteArtifactDetected) {
+    issues.push({
+      code: QA_ISSUE_CODE.FOREGROUND_PRODUCT_PASTE_ARTIFACT,
+      severity: QA_ISSUE_SEVERITY.HARD_FAIL,
+      message: "Foreground product appears pasted over the generated scene.",
+      regenerationHint: "Regenerate through native product reference integration, not foreground compositing.",
     });
   }
 

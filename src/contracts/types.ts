@@ -195,6 +195,12 @@ export interface M7QualityManifest {
   horizonBandCutsProduct?: boolean;
   secondaryAssetDistracts?: boolean;
   logoDominatesLayout?: boolean;
+  productInstanceCount?: number;
+  productEdgeIntegrated?: boolean;
+  foregroundPasteArtifactDetected?: boolean;
+  unauthorizedTextDetected?: boolean;
+  textBoxOverlapDetected?: boolean;
+  tinyTextDetected?: boolean;
 }
 
 export interface LogoOverlayMetadata {
@@ -466,6 +472,13 @@ export type QAIssueCode =
   | "HORIZON_BAND_CUTS_PRODUCT"
   | "SECONDARY_ASSET_DISTRACTS"
   | "LOGO_DOMINATES_LAYOUT"
+  | "UNAUTHORIZED_TEXT_DETECTED"
+  | "TEXT_BOX_OVERLAP"
+  | "TEXT_TOO_SMALL_ANY"
+  | "PRODUCT_INSTANCE_DUPLICATED"
+  | "PRODUCT_EDGE_NOT_INTEGRATED"
+  | "FOREGROUND_PRODUCT_PASTE_ARTIFACT"
+  | "VISUAL_QA_EVIDENCE_MISSING"
   | "NO_UNKNOWN_ERROR";
 
 export const QA_ISSUE_CODE = {
@@ -503,6 +516,13 @@ export const QA_ISSUE_CODE = {
   HORIZON_BAND_CUTS_PRODUCT: "HORIZON_BAND_CUTS_PRODUCT",
   SECONDARY_ASSET_DISTRACTS: "SECONDARY_ASSET_DISTRACTS",
   LOGO_DOMINATES_LAYOUT: "LOGO_DOMINATES_LAYOUT",
+  UNAUTHORIZED_TEXT_DETECTED: "UNAUTHORIZED_TEXT_DETECTED",
+  TEXT_BOX_OVERLAP: "TEXT_BOX_OVERLAP",
+  TEXT_TOO_SMALL_ANY: "TEXT_TOO_SMALL_ANY",
+  PRODUCT_INSTANCE_DUPLICATED: "PRODUCT_INSTANCE_DUPLICATED",
+  PRODUCT_EDGE_NOT_INTEGRATED: "PRODUCT_EDGE_NOT_INTEGRATED",
+  FOREGROUND_PRODUCT_PASTE_ARTIFACT: "FOREGROUND_PRODUCT_PASTE_ARTIFACT",
+  VISUAL_QA_EVIDENCE_MISSING: "VISUAL_QA_EVIDENCE_MISSING",
   NO_UNKNOWN_ERROR: "NO_UNKNOWN_ERROR",
 } as const satisfies Record<string, QAIssueCode>;
 
@@ -547,12 +567,22 @@ export interface GeneratedImageV3 extends GeneratedImageV2 {
 
 export interface NativeTextValidationMetadata {
   ocrChecked: boolean;
+  ocrItems?: NativeTextOcrItem[];
   mismatches: Array<{
     role: TextBlockSpec["role"];
     expected: string;
     detected?: string;
     severity: QAIssueSeverity;
   }>;
+}
+
+export interface NativeTextOcrItem {
+  text: string;
+  bounds: BoxBounds;
+  heightRatio: number;
+  authorized: boolean;
+  role?: TextBlockSpec["role"];
+  overlapsWith?: string[];
 }
 
 export interface Image2GenerationRequest {

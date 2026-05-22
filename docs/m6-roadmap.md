@@ -35,6 +35,14 @@ Implemented in `0.5.0`:
 - M7 prompt strategy for high-end underwater product advertising: larger headline, stronger product dominance, product-scene contact, no empty blue-water layout, no horizontal band cutting the product, and suppressed secondary accessories.
 - M7 QA codes for text too small, empty top composition, missing product scene contact, horizon band product cuts, distracting secondary assets, and logo dominance.
 
+Implemented in `0.5.1`:
+
+- M7.1 visual QA evidence enforcement: OCR items and visual evidence are required before approval.
+- `textValidation.ocrItems[]` records all detected text, bounding boxes, height ratios, authorization state, and text overlaps.
+- `m7Quality` now records product instance count, product edge integration, foreground paste artifacts, unauthorized text, text box overlap, and tiny text evidence.
+- M7 prompt now allows exactly one hero product and exactly three native text blocks, while forbidding micro text, duplicate products, ghost products, and accessory cutouts.
+- QA codes added for missing evidence, unauthorized text, text overlap, tiny OCR text, duplicate products, unintegrated product edges, and foreground paste artifacts.
+
 ## Goal
 
 Move Aurora OS from a deterministic brand image pipeline toward a structured native brand visual system:
