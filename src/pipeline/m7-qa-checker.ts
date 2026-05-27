@@ -58,13 +58,37 @@ export function checkM7CreativeQA(request: {
       });
     }
 
-    const tinyTexts = textValidation.ocrItems.filter((item) => item.heightRatio < 0.018);
+    const allowedMicroOverlayRoles = request.brief.typographyPlan.microCopyOverlay.allowedRoles;
+    const isAllowedMicroOverlay = (item: (typeof textValidation.ocrItems)[number]) =>
+      item.renderSource === "deterministic_overlay" &&
+      item.authorized &&
+      item.role !== undefined &&
+      allowedMicroOverlayRoles.includes(item.role as (typeof allowedMicroOverlayRoles)[number]) &&
+      item.heightRatio <= request.brief.typographyPlan.microCopyOverlay.maxHeightRatio;
+    const tinyTexts = textValidation.ocrItems.filter((item) => item.heightRatio < 0.018 && !isAllowedMicroOverlay(item));
     if (tinyTexts.length > 0 || quality?.tinyTextDetected) {
       issues.push({
         code: QA_ISSUE_CODE.TEXT_TOO_SMALL_ANY,
         severity: QA_ISSUE_SEVERITY.HARD_FAIL,
-        message: "OCR detected text that is too small for M7 poster output.",
-        regenerationHint: "Remove micro text and keep all visible typography readable.",
+        message: "OCR detected native or unauthorized text that is too small for M7 poster output.",
+        regenerationHint: "Let Image 2 generate only the main readable text blocks; move optional micro copy into deterministic overlay metadata.",
+      });
+    }
+
+    const microOverlayViolations = textValidation.ocrItems.filter(
+      (item) =>
+        item.renderSource === "deterministic_overlay" &&
+        (!item.authorized ||
+          item.role === undefined ||
+          !allowedMicroOverlayRoles.includes(item.role as (typeof allowedMicroOverlayRoles)[number]) ||
+          item.heightRatio > request.brief.typographyPlan.microCopyOverlay.maxHeightRatio),
+    );
+    if (microOverlayViolations.length > 0) {
+      issues.push({
+        code: QA_ISSUE_CODE.MICRO_TEXT_OVERLAY_POLICY_VIOLATION,
+        severity: QA_ISSUE_SEVERITY.HARD_FAIL,
+        message: "Deterministic micro copy overlay exceeded the M7 typography policy.",
+        regenerationHint: "Keep deterministic overlay text limited to tiny supporting or CTA copy; main headline, product name, and subhead must be native Image 2 typography.",
       });
     }
   }

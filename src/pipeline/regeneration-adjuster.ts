@@ -169,6 +169,8 @@ function toRegenerationConstraints(issue: QAIssue): string[] {
       return ["must avoid foreground product paste artifacts", ...hint];
     case QA_ISSUE_CODE.VISUAL_QA_EVIDENCE_MISSING:
       return ["must provide OCR and visual QA evidence metadata", ...hint];
+    case QA_ISSUE_CODE.MICRO_TEXT_OVERLAY_POLICY_VIOLATION:
+      return ["must keep deterministic overlay text limited to tiny supporting or CTA micro copy", ...hint];
     case QA_ISSUE_CODE.NO_UNKNOWN_ERROR:
       return hint;
   }

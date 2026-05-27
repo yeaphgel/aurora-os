@@ -44,10 +44,15 @@ describe("M7 creative product fusion", () => {
     });
 
     expect(brief.schemaVersion).toBe("m7.0");
+    expect(brief.textStrategy).toBe("native_main_text_with_micro_overlay");
     expect(brief.posterArchetype).toBe("cinematic_product_ad");
     expect(brief.compositionPlan.productWidthRatioRange).toEqual({ min: 0.55, max: 0.75 });
     expect(brief.compositionPlan.maxTopEmptySpaceRatio).toBe(0.22);
     expect(brief.compositionPlan.forbidHorizonBandThroughProduct).toBe(true);
+    expect(brief.typographyPlan.textStrategy).toBe("native_main_text_with_micro_overlay");
+    expect(brief.typographyPlan.nativeComposition.placement).toBe("scene_adaptive");
+    expect(brief.typographyPlan.microCopyOverlay.strategy).toBe("deterministic_overlay");
+    expect(brief.typographyPlan.microCopyOverlay.maxHeightRatio).toBe(0.018);
     expect(brief.typographyPlan.headline.text).toBe("Touch the future");
     expect(brief.typographyPlan.headline.minHeightRatio).toBe(0.07);
     expect(brief.typographyPlan.productName.text).toBe("SeaTouch 4 Max+");
@@ -59,6 +64,8 @@ describe("M7 creative product fusion", () => {
     expect(brief.promptPayload.image2Prompt).toContain("Generate exactly one main product instance");
     expect(brief.promptPayload.image2Prompt).toContain("exactly three text blocks");
     expect(brief.promptPayload.image2Prompt).toContain("Do not generate any other text");
+    expect(brief.promptPayload.image2Prompt).toContain("very small supporting copy is handled later by deterministic overlay only");
+    expect(brief.promptPayload.overlayInstruction).toContain("Only optional micro supporting copy may be deterministic overlay");
     expect(brief.promptPayload.image2Prompt).toContain("water caustics");
     expect(brief.promptPayload.image2Prompt).toContain("Touch the future");
     expect(brief.promptPayload.image2Prompt).toContain("Suppress secondary accessories");
@@ -379,6 +386,183 @@ describe("M7 creative product fusion", () => {
     expect(issueCodes).toContain(QA_ISSUE_CODE.UNAUTHORIZED_TEXT_DETECTED);
     expect(issueCodes).toContain(QA_ISSUE_CODE.TEXT_BOX_OVERLAP);
     expect(issueCodes).toContain(QA_ISSUE_CODE.TEXT_TOO_SMALL_ANY);
+  });
+
+  it("allows tiny deterministic supporting copy while keeping main typography native", async () => {
+    const adapter: Image2AdapterV3 = {
+      generate: async (request) => ({
+        imageId: "m7_micro_copy_overlay_ok",
+        uri: "asset://hermes/m7/micro-copy-overlay-ok.png",
+        width: request.brief.size.width,
+        height: request.brief.size.height,
+        format: "png",
+        adapterMode: "hermes_live",
+        usedProductReference: true,
+        usedLogoReference: false,
+        usedOverlayFallback: false,
+        inputAssetIds: [request.productAsset.assetId],
+        modelInvocation: {
+          provider: "hermes",
+          modelId: "gpt-image-2",
+          requestId: "req_m7_micro_copy_ok",
+          usedImageInputs: [request.productAsset.assetId],
+          usedProductAssetId: request.productAsset.assetId,
+          generatedAt: now(),
+        },
+        productLayout: {
+          canvas: request.brief.size,
+          productBounds: { x: 180, y: 560, width: 820, height: 620 },
+          productCoverage: 0.38,
+          pasteArtifactDetected: false,
+          lightingMismatchDetected: false,
+          textPanelCoverage: 0.15,
+          textOccludesProduct: false,
+          unauthorizedBrandMarksDetected: false,
+        },
+        logoOverlay: {
+          applied: true,
+          assetId: request.logoAsset.assetId,
+          strategy: "deterministic_overlay",
+          reservedZoneClean: true,
+          contrastOk: true,
+        },
+        textValidation: {
+          ocrChecked: true,
+          ocrItems: [
+            {
+              text: "Touch the future",
+              bounds: { x: 80, y: 120, width: 760, height: 133 },
+              heightRatio: 0.08,
+              authorized: true,
+              role: "headline",
+              renderSource: "native_image2_typography",
+            },
+            {
+              text: "SeaTouch 4 Max+",
+              bounds: { x: 80, y: 270, width: 460, height: 66 },
+              heightRatio: 0.04,
+              authorized: true,
+              role: "product_name",
+              renderSource: "native_image2_typography",
+            },
+            {
+              text: "Underwater smartphone ecosystem for focused ocean creators",
+              bounds: { x: 80, y: 350, width: 820, height: 38 },
+              heightRatio: 0.023,
+              authorized: true,
+              role: "subhead",
+              renderSource: "native_image2_typography",
+            },
+            {
+              text: "Full touchscreen underwater",
+              bounds: { x: 80, y: 1530, width: 280, height: 20 },
+              heightRatio: 0.012,
+              authorized: true,
+              role: "supporting",
+              renderSource: "deterministic_overlay",
+            },
+          ],
+          mismatches: [],
+        },
+        m7Quality: {
+          headlineHeightRatio: 0.08,
+          productNameHeightRatio: 0.04,
+          topEmptySpaceRatio: 0.12,
+          productSceneContactDetected: true,
+          horizonBandCutsProduct: false,
+          secondaryAssetDistracts: false,
+          logoDominatesLayout: false,
+          productInstanceCount: 1,
+          productEdgeIntegrated: true,
+          foregroundPasteArtifactDetected: false,
+          unauthorizedTextDetected: false,
+          textBoxOverlapDetected: false,
+          tinyTextDetected: false,
+        },
+      }),
+    };
+
+    const result = await runSingleImagePipelineV3(makeInput(), { imageAdapterV3: adapter, now });
+    const issueCodes = result.run.items[0]?.issues.map((issue) => issue.code);
+
+    expect(issueCodes).not.toContain(QA_ISSUE_CODE.TEXT_TOO_SMALL_ANY);
+    expect(issueCodes).not.toContain(QA_ISSUE_CODE.MICRO_TEXT_OVERLAY_POLICY_VIOLATION);
+    expect(result.run.items[0]?.brief.textStrategy).toBe("native_main_text_with_micro_overlay");
+  });
+
+  it("hard-fails deterministic overlay text that tries to replace main typography", async () => {
+    const adapter: Image2AdapterV3 = {
+      generate: async (request) => ({
+        imageId: "m7_bad_micro_copy_overlay",
+        uri: "asset://hermes/m7/bad-micro-copy-overlay.png",
+        width: request.brief.size.width,
+        height: request.brief.size.height,
+        format: "png",
+        adapterMode: "hermes_live",
+        usedProductReference: true,
+        usedLogoReference: false,
+        usedOverlayFallback: false,
+        inputAssetIds: [request.productAsset.assetId],
+        modelInvocation: {
+          provider: "hermes",
+          modelId: "gpt-image-2",
+          requestId: "req_m7_bad_micro_copy",
+          usedImageInputs: [request.productAsset.assetId],
+          usedProductAssetId: request.productAsset.assetId,
+          generatedAt: now(),
+        },
+        productLayout: {
+          canvas: request.brief.size,
+          productBounds: { x: 180, y: 560, width: 820, height: 620 },
+          productCoverage: 0.38,
+          pasteArtifactDetected: false,
+          lightingMismatchDetected: false,
+          textPanelCoverage: 0.2,
+          textOccludesProduct: false,
+          unauthorizedBrandMarksDetected: false,
+        },
+        logoOverlay: {
+          applied: true,
+          assetId: request.logoAsset.assetId,
+          strategy: "deterministic_overlay",
+          reservedZoneClean: true,
+        },
+        textValidation: {
+          ocrChecked: true,
+          ocrItems: [
+            {
+              text: "Touch the future",
+              bounds: { x: 80, y: 120, width: 760, height: 88 },
+              heightRatio: 0.053,
+              authorized: true,
+              role: "headline",
+              renderSource: "deterministic_overlay",
+            },
+          ],
+          mismatches: [],
+        },
+        m7Quality: {
+          headlineHeightRatio: 0.053,
+          productNameHeightRatio: 0.04,
+          topEmptySpaceRatio: 0.12,
+          productSceneContactDetected: true,
+          horizonBandCutsProduct: false,
+          secondaryAssetDistracts: false,
+          logoDominatesLayout: false,
+          productInstanceCount: 1,
+          productEdgeIntegrated: true,
+          foregroundPasteArtifactDetected: false,
+          unauthorizedTextDetected: false,
+          textBoxOverlapDetected: false,
+          tinyTextDetected: false,
+        },
+      }),
+    };
+
+    const result = await runSingleImagePipelineV3(makeInput(), { imageAdapterV3: adapter, now });
+    expect(result.run.items[0]?.issues.map((issue) => issue.code)).toContain(
+      QA_ISSUE_CODE.MICRO_TEXT_OVERLAY_POLICY_VIOLATION,
+    );
   });
 
   it("requires an injected M7 adapter and product reference", async () => {

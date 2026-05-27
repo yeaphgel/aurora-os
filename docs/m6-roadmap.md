@@ -43,6 +43,13 @@ Implemented in `0.5.1`:
 - M7 prompt now allows exactly one hero product and exactly three native text blocks, while forbidding micro text, duplicate products, ghost products, and accessory cutouts.
 - QA codes added for missing evidence, unauthorized text, text overlap, tiny OCR text, duplicate products, unintegrated product edges, and foreground paste artifacts.
 
+Implemented in `0.5.2`:
+
+- M7.2 typography routing: Image 2 owns the main poster copy (`Touch the future`, product name, short subhead) and composes it against the actual product, light, logo reserved area, and negative space.
+- Deterministic overlay is limited to the official logo plus optional micro supporting/CTA copy; it must not replace the headline, product name, or subhead.
+- OCR evidence may mark each detected text item with `renderSource`, allowing tiny deterministic supporting copy while hard-failing native/generated micro text.
+- QA code added for deterministic micro copy that violates the M7 typography policy.
+
 ## Goal
 
 Move Aurora OS from a deterministic brand image pipeline toward a structured native brand visual system:

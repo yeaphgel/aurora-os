@@ -116,7 +116,10 @@ export type BrandStoryMode =
   | "comparison_claim";
 
 export type TextEditPolicy = "exact" | "locked_meaning" | "creative";
-export type TextRenderStrategy = "native_image2_typography" | "deterministic_overlay";
+export type TextRenderStrategy =
+  | "native_image2_typography"
+  | "deterministic_overlay"
+  | "native_main_text_with_micro_overlay";
 export type LogoRenderStrategy = "deterministic_required" | "experimental_native_logo";
 
 export interface TextBlockSpec {
@@ -282,6 +285,7 @@ export interface CompositionPlan {
 }
 
 export interface TypographyPlan {
+  textStrategy: "native_main_text_with_micro_overlay";
   headline: {
     text: string;
     minHeightRatio: number;
@@ -300,6 +304,19 @@ export interface TypographyPlan {
     priority: "recommended";
   };
   maxTotalCoverageRatio: number;
+  nativeComposition: {
+    placement: "scene_adaptive";
+    mustRespondToProductAndLight: true;
+    mustAvoidLogoReservedArea: true;
+    mustAvoidProductOcclusion: true;
+  };
+  microCopyOverlay: {
+    enabled: true;
+    strategy: "deterministic_overlay";
+    maxHeightRatio: number;
+    maxTotalCoverageRatio: number;
+    allowedRoles: Array<Extract<TextBlockSpec["role"], "supporting" | "cta">>;
+  };
 }
 
 export interface ProductFusionPlan {
@@ -479,6 +496,7 @@ export type QAIssueCode =
   | "PRODUCT_EDGE_NOT_INTEGRATED"
   | "FOREGROUND_PRODUCT_PASTE_ARTIFACT"
   | "VISUAL_QA_EVIDENCE_MISSING"
+  | "MICRO_TEXT_OVERLAY_POLICY_VIOLATION"
   | "NO_UNKNOWN_ERROR";
 
 export const QA_ISSUE_CODE = {
@@ -523,6 +541,7 @@ export const QA_ISSUE_CODE = {
   PRODUCT_EDGE_NOT_INTEGRATED: "PRODUCT_EDGE_NOT_INTEGRATED",
   FOREGROUND_PRODUCT_PASTE_ARTIFACT: "FOREGROUND_PRODUCT_PASTE_ARTIFACT",
   VISUAL_QA_EVIDENCE_MISSING: "VISUAL_QA_EVIDENCE_MISSING",
+  MICRO_TEXT_OVERLAY_POLICY_VIOLATION: "MICRO_TEXT_OVERLAY_POLICY_VIOLATION",
   NO_UNKNOWN_ERROR: "NO_UNKNOWN_ERROR",
 } as const satisfies Record<string, QAIssueCode>;
 
@@ -582,6 +601,7 @@ export interface NativeTextOcrItem {
   heightRatio: number;
   authorized: boolean;
   role?: TextBlockSpec["role"];
+  renderSource?: TextRenderStrategy;
   overlapsWith?: string[];
 }
 

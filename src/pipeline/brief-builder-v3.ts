@@ -34,9 +34,10 @@ export function buildImageBriefV3(request: BriefBuilderV3Request): ImageBriefV3 
     `Generate exactly one main product instance. Do not create background duplicate products, ghost products, smaller product copies, or accessory cutouts.`,
     `The product should occupy 55% to 75% of canvas width and be the dominant subject.`,
     `Build environmental contact around the product: underwater caustics, soft water haze, rim light, cast shadow, refraction, suspended particles crossing product edges, and foreground/background depth layers.`,
-    `Use bold native Image 2 typography with exactly three text blocks: "${headlineText}", "${productNameText}", and "${subheadText}".`,
+    `Use bold native Image 2 typography for the main poster copy, composed around the actual product position, water light, logo reserved area, and negative space.`,
+    `Generate exactly three text blocks as native Image 2 typography: "${headlineText}", "${productNameText}", and "${subheadText}".`,
     `"${headlineText}" must be the main headline at 7% to 11% of canvas height; "${productNameText}" must sit near it as the product name; "${subheadText}" may be one or two short lines.`,
-    `Do not generate any other text, micro labels, technical tags, tiny captions, fake brand words, pseudo UI text, or extra slogans anywhere in the image.`,
+    `Do not generate any other text, micro labels, technical tags, tiny captions, fake brand words, pseudo UI text, or extra slogans anywhere in the image; very small supporting copy is handled later by deterministic overlay only.`,
     `Keep all text boxes separated; do not overlap text with other text, the product, the logo reserved area, or important product details.`,
     `Reserve the official logo area for deterministic asset overlay only; do not draw the official logo, logo symbol, or logo lockup.`,
     `Avoid empty blue-water composition. Avoid flat procedural water graphics, horizontal translucent bands crossing the product, and template-like poster panels.`,
@@ -46,12 +47,14 @@ export function buildImageBriefV3(request: BriefBuilderV3Request): ImageBriefV3 
   const overlayInstruction = [
     base.promptPayload.overlayInstruction,
     `M7 logo overlay must use the original logo asset only and stay within the logoReservedArea.`,
-    `Do not overlay headline, product name, or subhead; Image 2 must generate those text elements natively.`,
+    `Do not overlay headline, product name, or subhead; Image 2 must generate those main text elements natively.`,
+    `Only optional micro supporting copy may be deterministic overlay, and it must stay below ${typographyPlan.microCopyOverlay.maxHeightRatio * 100}% of canvas height per line and ${typographyPlan.microCopyOverlay.maxTotalCoverageRatio * 100}% total text coverage.`,
   ].join(" ");
 
   return {
     ...base,
     schemaVersion: "m7.0",
+    textStrategy: "native_main_text_with_micro_overlay",
     posterArchetype: "cinematic_product_ad",
     compositionPlan,
     typographyPlan,
@@ -124,6 +127,7 @@ function buildCompositionPlan(size: ImageBriefV3["size"], logoReservedArea: BoxB
 
 function buildTypographyPlan(headline: string, productName: string, subhead: string): TypographyPlan {
   return {
+    textStrategy: "native_main_text_with_micro_overlay",
     headline: {
       text: headline,
       minHeightRatio: 0.07,
@@ -142,6 +146,19 @@ function buildTypographyPlan(headline: string, productName: string, subhead: str
       priority: "recommended",
     },
     maxTotalCoverageRatio: 0.22,
+    nativeComposition: {
+      placement: "scene_adaptive",
+      mustRespondToProductAndLight: true,
+      mustAvoidLogoReservedArea: true,
+      mustAvoidProductOcclusion: true,
+    },
+    microCopyOverlay: {
+      enabled: true,
+      strategy: "deterministic_overlay",
+      maxHeightRatio: 0.018,
+      maxTotalCoverageRatio: 0.025,
+      allowedRoles: ["supporting", "cta"],
+    },
   };
 }
 
